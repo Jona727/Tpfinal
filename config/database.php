@@ -1,57 +1,87 @@
 <?php
-/**
- * SOLUFEED - Configuración de Base de Datos
- * 
- * Este archivo contiene la configuración para conectarse a MySQL.
- * Cambiá los valores si tu configuración es diferente.
- */
-
-// Configuración de la base de datos
-define('DB_HOST', 'localhost');        // Servidor (normalmente localhost)
-define('DB_USER', 'root');             // Usuario de MySQL (por defecto "root" en XAMPP)
-define('DB_PASS', '');                 // Contraseña (vacía por defecto en XAMPP)
-define('DB_NAME', 'solufeed_el_choli'); // Nombre de tu base de datos
-
-// Crear conexión
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-// Verificar conexión
-if (!$conn) {
-    die("❌ Error de conexión: " . mysqli_connect_error());
-}
-
-// Configurar charset UTF-8 para caracteres especiales (tildes, ñ, etc.)
-mysqli_set_charset($conn, "utf8mb4");
+// config/database.php
+// Configuración de conexión a la base de datos MySQL con PDO
 
 /**
- * Función auxiliar para ejecutar consultas de forma segura
- * 
- * @param string $query - La consulta SQL a ejecutar
- * @return mysqli_result|bool - Resultado de la consulta
+ * Función principal para obtener conexión PDO
  */
-function ejecutarConsulta($query) {
-    global $conn;
-    $resultado = mysqli_query($conn, $query);
+function getConnection() {
+    $host = 'localhost';
+    $dbname = 'solufeed_el_choli';
+    $username = 'root';
+    $password = '';
     
-    if (!$resultado) {
-        // En desarrollo mostramos el error, en producción lo ocultaríamos
-        die("❌ Error en la consulta: " . mysqli_error($conn));
+    try {
+        $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        
+        $db = new PDO($dsn, $username, $password, $options);
+        return $db;
+        
+    } catch (PDOException $e) {
+        die("Error al conectar con la base de datos: " . $e->getMessage());
     }
-    
-    return $resultado;
 }
 
-/**
- * Función para escapar datos y prevenir SQL Injection
- * 
- * @param string $data - Dato a escapar
- * @return string - Dato escapado y seguro
- */
-function limpiarDato($data) {
+// ===========================================
+// FUNCIONES COMPATIBILIDAD MYSQLI (TEMPORAL)
+// Para que archivos viejos sigan funcionando
+// ===========================================
+
+// Conexión mysqli global
+$conn = null;
+
+function getMysqliConnection() {
     global $conn;
-    return mysqli_real_escape_string($conn, trim($data));
+    if ($conn === null) {
+        $conn = mysqli_connect('localhost', 'root', '', 'solufeed_el_choli');
+        if (!$conn) {
+            die("Error de conexión mysqli: " . mysqli_connect_error());
+        }
+        mysqli_set_charset($conn, "utf8mb4");
+    }
+    return $conn;
 }
 
-// Configuración de zona horaria (Argentina)
-date_default_timezone_set('America/Argentina/Buenos_Aires');
+// Inicializar conexión
+$conn = getMysqliConnection();
+
+function ejecutarConsulta($query) {
+    $conn = getMysqliConnection();
+    $result = mysqli_query($conn, $query);
+    if (!$result) {
+        die("Error en la consulta: " . mysqli_error($conn));
+    }
+    return $result;
+}
+
+function limpiarDato($dato) {
+    $conn = getMysqliConnection();
+    return mysqli_real_escape_string($conn, trim($dato));
+}
+
+// ===========================================
+// FUNCIONES AUXILIARES PDO
+// ===========================================
+
+function executeQuery($sql, $params = []) {
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt;
+}
+
+function getOne($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    return $stmt->fetch();
+}
+
+function getAll($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    return $stmt->fetchAll();
+}
 ?>
