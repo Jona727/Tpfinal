@@ -1,0 +1,13 @@
+</div> <!-- Cierra container -->
+    </main> <!-- Cierra contenido-principal -->
+    
+    <footer class="footer-principal">
+        <div class="container">
+            <p>&copy; <?php echo date('Y'); ?> Solufeed - El Choli SA. Todos los derechos reservados.</p>
+            <p class="creditos">Desarrollado como Proyecto Final Integrador - TUP</p>
+        </div>
+    </footer>
+    
+    <script src="/solufeed/assets/js/scripts.js"></script>
+</body>
+</html>
