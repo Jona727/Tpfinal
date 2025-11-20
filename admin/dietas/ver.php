@@ -25,7 +25,7 @@ if (!$dieta) {
 
 // Obtener composición de la dieta
 $stmt = $db->prepare("
-    SELECT 
+    SELECT
         dd.*,
         i.nombre as nombre_insumo,
         i.tipo,
@@ -33,7 +33,7 @@ $stmt = $db->prepare("
     FROM dieta_detalle dd
     INNER JOIN insumo i ON dd.id_insumo = i.id_insumo
     WHERE dd.id_dieta = ?
-    ORDER BY dd.porcentaje DESC
+    ORDER BY dd.porcentaje_teorico DESC
 ");
 $stmt->execute([$id_dieta]);
 $composicion = $stmt->fetchAll();
@@ -41,7 +41,7 @@ $composicion = $stmt->fetchAll();
 // Calcular MS total de la dieta
 $ms_total = 0;
 foreach ($composicion as $item) {
-    $ms_total += ($item['porcentaje'] * $item['porcentaje_ms']) / 100;
+    $ms_total += ($item['porcentaje_teorico'] * $item['porcentaje_ms']) / 100;
 }
 
 // Obtener lotes que usan esta dieta
@@ -114,11 +114,11 @@ require_once '../../includes/header.php';
                                 </span>
                             </td>
                             <td><?php echo number_format($item['porcentaje_ms'], 1); ?>%</td>
-                            <td><strong><?php echo number_format($item['porcentaje'], 1); ?>%</strong></td>
+                            <td><strong><?php echo number_format($item['porcentaje_teorico'], 1); ?>%</strong></td>
                             <td>
                                 <div class="porcentaje-bar">
-                                    <div class="porcentaje-fill" style="width: <?php echo $item['porcentaje']; ?>%">
-                                        <?php echo number_format($item['porcentaje'], 1); ?>%
+                                    <div class="porcentaje-fill" style="width: <?php echo $item['porcentaje_teorico']; ?>%">
+                                        <?php echo number_format($item['porcentaje_teorico'], 1); ?>%
                                     </div>
                                 </div>
                             </td>
@@ -141,9 +141,9 @@ require_once '../../includes/header.php';
                     </div>
                     <div class="ms-item">
                         <p class="valor">
-                            <?php 
-                            $total_porcentaje = array_sum(array_column($composicion, 'porcentaje'));
-                            echo number_format($total_porcentaje, 1); 
+                            <?php
+                            $total_porcentaje = array_sum(array_column($composicion, 'porcentaje_teorico'));
+                            echo number_format($total_porcentaje, 1);
                             ?>%
                         </p>
                         <p class="etiqueta">Total Porcentajes</p>
