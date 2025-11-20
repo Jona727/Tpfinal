@@ -113,7 +113,7 @@ include '../../includes/header.php';
     <?php if (!empty($errores)): ?>
         <div class="mensaje mensaje-error">
             <strong>Se encontraron los siguientes errores:</strong>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
+            <ul class="mensaje-lista">
                 <?php foreach ($errores as $error): ?>
                     <li><?php echo $error; ?></li>
                 <?php endforeach; ?>
@@ -161,13 +161,13 @@ include '../../includes/header.php';
             </label>
             <small>Las dietas inactivas no se pueden asignar a lotes nuevos.</small>
         </div>
-        
-        <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
-        
+
+        <hr class="separador-horizontal">
+
         <!-- Selección de insumos -->
-        <h3 style="color: #2c5530; margin-bottom: 1rem;">🌾 Composición de la Dieta</h3>
-        
-        <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
+        <h3 class="seccion-titulo-formulario">🌾 Composición de la Dieta</h3>
+
+        <div class="mensaje mensaje-info">
             ℹ️ Seleccioná los insumos y definí el porcentaje teórico de cada uno. 
             <strong>Los porcentajes deben sumar exactamente 100%.</strong>
         </div>
@@ -181,25 +181,25 @@ include '../../includes/header.php';
                     $insumos_array[] = $insumo;
                 }
                 ?>
-                
-                <table style="width: 100%;">
+
+                <table class="tabla-insumos">
                     <thead>
-                        <tr style="background: #f8f9fa;">
-                            <th style="width: 50px; text-align: center;">Usar</th>
+                        <tr>
+                            <th class="checkbox-col">Usar</th>
                             <th>Insumo</th>
                             <th>Tipo</th>
-                            <th style="width: 100px;">% MS</th>
-                            <th style="width: 150px;">% en la Dieta</th>
+                            <th class="ms-col">% MS</th>
+                            <th class="porcentaje-col">% en la Dieta</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($insumos_array as $insumo): ?>
-                            <?php 
+                            <?php
                             $checked = isset($_POST['insumos']) && in_array($insumo['id_insumo'], $_POST['insumos']) ? 'checked' : '';
                             $valor_porcentaje = isset($_POST['porcentajes'][$insumo['id_insumo']]) ? $_POST['porcentajes'][$insumo['id_insumo']] : '';
                             ?>
                             <tr>
-                                <td style="text-align: center;">
+                                <td class="checkbox-cell">
                                     <input 
                                         type="checkbox" 
                                         name="insumos[]" 
@@ -217,24 +217,23 @@ include '../../includes/header.php';
                                         type="number" 
                                         name="porcentajes[<?php echo $insumo['id_insumo']; ?>]"
                                         id="porcentaje_<?php echo $insumo['id_insumo']; ?>"
-                                        step="0.01" 
-                                        min="0" 
+                                        step="0.01"
+                                        min="0"
                                         max="100"
                                         placeholder="0.00"
                                         class="porcentaje-input"
-                                        style="width: 100%; padding: 0.5rem;"
                                         value="<?php echo $valor_porcentaje; ?>"
                                         <?php echo $checked ? '' : 'disabled'; ?>
                                     >
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                        
+
                         <!-- Fila de total -->
-                        <tr style="background: #f8f9fa; font-weight: bold;">
-                            <td colspan="4" style="text-align: right; padding: 1rem;">TOTAL:</td>
-                            <td style="padding: 1rem;">
-                                <div id="totalPorcentaje" style="font-size: 1.2rem; color: #2c5530;">0.00%</div>
+                        <tr class="fila-total">
+                            <td colspan="4" class="total-label">TOTAL:</td>
+                            <td class="total-display">
+                                <div id="totalPorcentaje">0.00%</div>
                             </td>
                         </tr>
                     </tbody>

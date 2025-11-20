@@ -1276,6 +1276,70 @@ table tbody tr:hover {
     color: #666;
 }
 
+.seccion-titulo-formulario {
+    color: #2c5530;
+    margin-bottom: 1rem;
+}
+
+.tabla-insumos {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-insumos thead tr {
+    background: #f8f9fa;
+}
+
+.tabla-insumos th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: bold;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.tabla-insumos th.checkbox-col {
+    width: 50px;
+    text-align: center;
+}
+
+.tabla-insumos th.porcentaje-col {
+    width: 150px;
+}
+
+.tabla-insumos th.ms-col {
+    width: 100px;
+}
+
+.tabla-insumos td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tabla-insumos td.checkbox-cell {
+    text-align: center;
+}
+
+.porcentaje-input {
+    width: 100%;
+    padding: 0.5rem;
+}
+
+.fila-total {
+    background: #f8f9fa;
+    font-weight: bold;
+}
+
+.total-label {
+    text-align: right;
+    padding: 1rem;
+}
+
+.total-display {
+    font-size: 1.2rem;
+    color: #2c5530;
+    padding: 1rem;
+}
+
 /* ========================================
    RESPONSIVE
 ======================================== */
