@@ -1,11 +1,6 @@
 <?php
-/**
- * SOLUFEED - Página de Inicio
- * Redirige al dashboard (por ahora sin login)
- */
+require_once __DIR__ . '/includes/functions.php';
 
-// Por ahora redirigimos directo al dashboard
-// Cuando implementes login, acá irá la lógica de verificación
-header('Location: /solufeed/admin/dashboard.php');
+header('Location: ' . BASE_URL . '/admin/dashboard.php');
 exit();
 ?>

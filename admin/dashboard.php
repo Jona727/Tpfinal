@@ -1,618 +1,294 @@
 <?php
-// admin/dashboard.php - VERSIÓN FINAL CON NOMBRES CORRECTOS
-require_once '../config/database.php';
-require_once '../includes/functions.php';
+// admin/dashboard.php - VERSIÓN REFACTORIZADA
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../models/StatsModel.php';
+
+// Verificar sesión
+verificarSesion();
 
 $page_title = "Dashboard - Panel de Control";
-$db = getConnection();
+$stats = new StatsModel();
 
-$hoy = date('Y-m-d');
+// Obtener datos
+$indicadores = $stats->getMainIndicators();
+$hoyStats = $stats->getTodayStats();
+$adpv = $stats->getAdpvAvg();
+$cms = $stats->getCmsAvg();
+$eficiencia = ($cms > 0) ? ($adpv / $cms) : 0; // kg carne / kg MS
+$alertas = $stats->getAlerts();
+$lotesActivos = $stats->getTopActiveLotes(5);
+$ultimasAlimentaciones = $stats->getLastFeedings(5);
+$datosPeso = $stats->getWeightEvolutionData();
+$datosMs = $stats->getMsConsumptionData();
 
-// ===========================================
-// INDICADORES PRINCIPALES
-// ===========================================
-
-// Lotes activos
-$stmt = $db->query("SELECT COUNT(*) as total FROM tropa WHERE activo = 1");
-$total_lotes = $stmt->fetch()['total'];
-
-// Total de animales (suma de cantidad_inicial de lotes activos)
-$stmt = $db->query("SELECT SUM(cantidad_inicial) as total FROM tropa WHERE activo = 1");
-$total_animales = $stmt->fetch()['total'] ?? 0;
-
-// Total de insumos
-$stmt = $db->query("SELECT COUNT(*) as total FROM insumo WHERE activo = 1");
-$total_insumos = $stmt->fetch()['total'];
-
-// Total de dietas
-$stmt = $db->query("SELECT COUNT(*) as total FROM dieta WHERE activo = 1");
-$total_dietas = $stmt->fetch()['total'];
-
-// Alimentaciones hoy
-$stmt = $db->prepare("SELECT COUNT(*) as total FROM consumo_lote WHERE DATE(fecha) = ?");
-$stmt->execute([$hoy]);
-$alimentaciones_hoy = $stmt->fetch()['total'];
-
-// Kg totales entregados hoy
-$stmt = $db->prepare("SELECT COALESCE(SUM(kg_totales_tirados), 0) as total FROM consumo_lote WHERE DATE(fecha) = ?");
-$stmt->execute([$hoy]);
-$kg_hoy = $stmt->fetch()['total'];
-
-// ADPV Promedio (últimos 30 días)
-$stmt = $db->query("
-    SELECT 
-        AVG(
-            (p2.peso_promedio - p1.peso_promedio) / 
-            DATEDIFF(p2.fecha, p1.fecha)
-        ) as adpv_promedio
-    FROM pesada p1
-    INNER JOIN pesada p2 ON p1.id_tropa = p2.id_tropa 
-        AND p2.fecha > p1.fecha
-        AND p2.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    WHERE NOT EXISTS (
-        SELECT 1 FROM pesada p3 
-        WHERE p3.id_tropa = p1.id_tropa 
-        AND p3.fecha > p1.fecha 
-        AND p3.fecha < p2.fecha
-    )
-");
-$adpv_promedio = $stmt->fetch()['adpv_promedio'] ?? 0;
-
-// CMS Promedio (últimos 7 días)
-$stmt = $db->query("
-    SELECT 
-        AVG(
-            (SELECT SUM(kg_ms)
-             FROM consumo_lote_detalle cld
-             WHERE cld.id_consumo = cl.id_consumo) / cl.animales_presentes
-        ) as cms_promedio
-    FROM consumo_lote cl
-    WHERE cl.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-    AND cl.animales_presentes > 0
-");
-$cms_promedio = $stmt->fetch()['cms_promedio'] ?? 0;
-
-// ===========================================
-// ALERTAS
-// ===========================================
-
-// Lotes sin dieta asignada
-$stmt = $db->query("
-    SELECT COUNT(*) as total
-    FROM tropa t
-    LEFT JOIN tropa_dieta_asignada tda ON t.id_tropa = tda.id_tropa AND tda.fecha_hasta IS NULL
-    WHERE t.activo = 1 AND tda.id_tropa_dieta IS NULL
-");
-$lotes_sin_dieta = $stmt->fetch()['total'];
-
-// Ajustes de animales pendientes
-$stmt = $db->query("
-    SELECT COUNT(*) as total
-    FROM ajuste_animales_pendiente
-    WHERE estado = 'PENDIENTE'
-");
-$ajustes_pendientes = $stmt->fetch()['total'];
-
-// Lotes sin alimentar hoy
-$stmt = $db->prepare("
-    SELECT COUNT(DISTINCT t.id_tropa) as total
-    FROM tropa t
-    LEFT JOIN consumo_lote cl ON t.id_tropa = cl.id_tropa AND DATE(cl.fecha) = ?
-    WHERE t.activo = 1 AND cl.id_consumo IS NULL
-");
-$stmt->execute([$hoy]);
-$lotes_sin_alimentar = $stmt->fetch()['total'];
-
-// ===========================================
-// LOTES ACTIVOS (Top 5)
-// ===========================================
-$stmt = $db->query("
-    SELECT 
-        t.id_tropa,
-        t.nombre,
-        c.nombre as campo,
-        t.cantidad_inicial as animales,
-        d.nombre as dieta,
-        (SELECT peso_promedio FROM pesada WHERE id_tropa = t.id_tropa ORDER BY fecha DESC LIMIT 1) as ultimo_peso,
-        (SELECT DATE(fecha) FROM pesada WHERE id_tropa = t.id_tropa ORDER BY fecha DESC LIMIT 1) as fecha_peso,
-        DATEDIFF(CURDATE(), t.fecha_inicio) as dias_feedlot
-    FROM tropa t
-    LEFT JOIN campo c ON t.id_campo = c.id_campo
-    LEFT JOIN tropa_dieta_asignada tda ON t.id_tropa = tda.id_tropa AND tda.fecha_hasta IS NULL
-    LEFT JOIN dieta d ON tda.id_dieta = d.id_dieta
-    WHERE t.activo = 1
-    ORDER BY t.fecha_inicio DESC
-    LIMIT 5
-");
-$lotes_activos = $stmt->fetchAll();
-
-// ===========================================
-// ÚLTIMAS ALIMENTACIONES (5)
-// ===========================================
-$stmt = $db->query("
-    SELECT 
-        cl.fecha,
-        cl.hora,
-        t.nombre as lote,
-        cl.kg_totales_tirados,
-        cl.animales_presentes,
-        u.nombre as operario
-    FROM consumo_lote cl
-    INNER JOIN tropa t ON cl.id_tropa = t.id_tropa
-    LEFT JOIN usuario u ON cl.id_usuario = u.id_usuario
-    ORDER BY cl.fecha DESC, cl.hora DESC
-    LIMIT 5
-");
-$ultimas_alimentaciones = $stmt->fetchAll();
-
-// ===========================================
-// DATOS PARA GRÁFICOS
-// ===========================================
-
-// Gráfico 1: Evolución de peso (últimos 30 días)
-$stmt = $db->query("
-    SELECT 
-        DATE(p.fecha) as fecha,
-        AVG(p.peso_promedio) as peso_promedio
-    FROM pesada p
-    INNER JOIN tropa t ON p.id_tropa = t.id_tropa
-    WHERE t.activo = 1
-    AND p.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    GROUP BY DATE(p.fecha)
-    ORDER BY fecha ASC
-");
-$datos_peso = $stmt->fetchAll();
-
-// Gráfico 2: Consumo de MS últimos 7 días
-$stmt = $db->query("
-    SELECT 
-        DATE(cl.fecha) as fecha,
-        SUM(
-            (SELECT SUM(cld.kg_ms)
-             FROM consumo_lote_detalle cld
-             WHERE cld.id_consumo = cl.id_consumo)
-        ) as ms_total
-    FROM consumo_lote cl
-    WHERE cl.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-    GROUP BY DATE(cl.fecha)
-    ORDER BY fecha ASC
-");
-$datos_ms = $stmt->fetchAll();
-
-require_once '../includes/header.php';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<style>
-.dashboard-container {
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-.alertas-container {
-    margin-bottom: 25px;
-}
-
-.alerta {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 15px 20px;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.alerta.critica {
-    background: #f8d7da;
-    border-left-color: #dc3545;
-}
-
-.alerta .icono {
-    font-size: 1.5em;
-}
-
-.alerta .contenido {
-    flex: 1;
-}
-
-.alerta strong {
-    display: block;
-    margin-bottom: 3px;
-}
-
-.alerta a {
-    color: inherit;
-    text-decoration: underline;
-    font-weight: bold;
-}
-
-.indicadores {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.indicador {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    text-align: center;
-    transition: transform 0.3s;
-}
-
-.indicador:hover {
-    transform: translateY(-5px);
-}
-
-.indicador .numero {
-    font-size: 2.5em;
-    font-weight: bold;
-    color: #2c5530;
-    margin: 10px 0;
-}
-
-.indicador .etiqueta {
-    color: #666;
-    font-size: 0.9em;
-}
-
-.indicador .icono {
-    font-size: 2em;
-}
-
-.graficos {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.grafico-card {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    height: 350px; /* Altura fija para los gráficos */
-}
-
-.grafico-card h3 {
-    margin: 0 0 20px 0;
-    color: #2c5530;
-}
-
-.grafico-card canvas {
-    max-height: 280px; /* Limitar altura del canvas */
-}
-
-.tabla-card {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
-.tabla-card h3 {
-    margin: 0 0 20px 0;
-    color: #2c5530;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-table th {
-    background: #f8f9fa;
-    padding: 12px;
-    text-align: left;
-    font-weight: bold;
-    border-bottom: 2px solid #dee2e6;
-}
-
-table td {
-    padding: 12px;
-    border-bottom: 1px solid #dee2e6;
-}
-
-table tr:hover {
-    background: #f8f9fa;
-}
-
-.badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: bold;
-}
-
-.badge-success {
-    background: #d4edda;
-    color: #155724;
-}
-
-.badge-warning {
-    background: #fff3cd;
-    color: #856404;
-}
-
-@media (max-width: 768px) {
-    .graficos {
-        grid-template-columns: 1fr;
-    }
-    
-    .indicadores {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-</style>
-
 <div class="dashboard-container">
-    <h1 style="margin-bottom: 20px;">📊 Dashboard - Panel de Control</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1 style="font-weight: 800; color: var(--primary); letter-spacing: -1px;">📊 Panel de Control</h1>
+        <div class="user-badge" style="background: white; padding: 0.5rem 1rem; border-radius: 50px; box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 10px; border: 1px solid var(--border);">
+            <div style="width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                <?php echo substr($_SESSION['nombre'], 0, 1); ?>
+            </div>
+            <span style="font-weight: 600; font-size: 0.9rem;"><?php echo htmlspecialchars($_SESSION['nombre']); ?></span>
+        </div>
+    </div>
 
     <!-- ALERTAS -->
-    <?php if ($lotes_sin_dieta > 0 || $ajustes_pendientes > 0 || $lotes_sin_alimentar > 0): ?>
-        <div class="alertas-container">
-            <?php if ($lotes_sin_alimentar > 0): ?>
-                <div class="alerta">
-                    <div class="icono">⚠️</div>
+    <?php if ($alertas['lotes_sin_dieta'] > 0 || $alertas['ajustes_pendientes'] > 0 || $alertas['lotes_sin_alimentar'] > 0): ?>
+        <div class="alertas-container" style="margin-bottom: 2rem;">
+            <?php if ($alertas['lotes_sin_alimentar'] > 0): ?>
+                <div class="alerta" style="background: #fff3cd; border-left: 5px solid var(--warning); padding: 1.25rem; border-radius: var(--radius); margin-bottom: 1rem; display: flex; align-items: center; gap: 15px; box-shadow: var(--shadow-sm);">
+                    <div class="icono" style="font-size: 1.5rem;">⚠️</div>
                     <div class="contenido">
-                        <strong><?php echo $lotes_sin_alimentar; ?> lote(s) sin alimentar hoy</strong>
-                        Hay lotes que aún no recibieron alimentación.
-                        <a href="lotes/listar.php">Ver lotes →</a>
+                        <strong style="color: #856404;">Atención: <?php echo $alertas['lotes_sin_alimentar']; ?> lote(s) sin alimentar hoy</strong>
+                        <span style="font-size: 0.9rem; color: #856404; opacity: 0.8;">Hay lotes que aún no han recibido su ración diaria.</span>
                     </div>
+                    <a href="lotes/listar.php" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Gestionar</a>
                 </div>
             <?php endif; ?>
 
-            <?php if ($lotes_sin_dieta > 0): ?>
-                <div class="alerta">
-                    <div class="icono">📋</div>
+            <?php if ($alertas['lotes_sin_dieta'] > 0): ?>
+                <div class="alerta" style="background: #eef2ff; border-left: 5px solid var(--secondary); padding: 1.25rem; border-radius: var(--radius); margin-bottom: 1rem; display: flex; align-items: center; gap: 15px; box-shadow: var(--shadow-sm);">
+                    <div class="icono" style="font-size: 1.5rem;">📋</div>
                     <div class="contenido">
-                        <strong><?php echo $lotes_sin_dieta; ?> lote(s) sin dieta asignada</strong>
-                        Algunos lotes no tienen dieta vigente.
-                        <a href="lotes/listar.php">Asignar dietas →</a>
+                        <strong style="color: var(--secondary);"><?php echo $alertas['lotes_sin_dieta']; ?> lote(s) sin dieta asignada</strong>
+                        <span style="font-size: 0.9rem; color: var(--secondary); opacity: 0.8;">Es necesario asignar una dieta para poder registrar consumos.</span>
                     </div>
+                    <a href="lotes/listar.php" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Asignar</a>
                 </div>
             <?php endif; ?>
 
-            <?php if ($ajustes_pendientes > 0): ?>
-                <div class="alerta critica">
-                    <div class="icono">🔔</div>
+            <?php if ($alertas['ajustes_pendientes'] > 0): ?>
+                <div class="alerta" style="background: #fef2f2; border-left: 5px solid var(--danger); padding: 1.25rem; border-radius: var(--radius); margin-bottom: 1rem; display: flex; align-items: center; gap: 15px; box-shadow: var(--shadow-sm);">
+                    <div class="icono" style="font-size: 1.5rem;">🚨</div>
                     <div class="contenido">
-                        <strong><?php echo $ajustes_pendientes; ?> ajuste(s) de animales pendiente(s)</strong>
-                        Hay diferencias detectadas en pesadas que requieren revisión.
+                        <strong style="color: var(--danger);"><?php echo $alertas['ajustes_pendientes']; ?> ajuste(s) pendiente(s)</strong>
+                        <span style="font-size: 0.9rem; color: var(--danger); opacity: 0.8;">Se detectaron diferencias de animales en las pesadas que deben ser validadas.</span>
                     </div>
+                    <a href="campo/ajustes_pendientes.php" class="btn btn-primary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem; background: var(--danger);">Revisar</a>
                 </div>
             <?php endif; ?>
         </div>
     <?php endif; ?>
 
     <!-- INDICADORES PRINCIPALES -->
-    <div class="indicadores">
-        <div class="indicador">
-            <div class="icono">🐮</div>
-            <div class="numero"><?php echo $total_lotes; ?></div>
-            <div class="etiqueta">Lotes Activos</div>
+    <div class="indicadores" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #f0fdf4 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">🐮</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Lotes Activos</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary);"><?php echo $indicadores['lotes_activos']; ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">En engorde actual</div>
         </div>
 
-        <div class="indicador">
-            <div class="icono">🐄</div>
-            <div class="numero"><?php echo number_format($total_animales); ?></div>
-            <div class="etiqueta">Animales en Feedlot</div>
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #eff6ff 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">🐄</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Stock Total</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: var(--secondary);"><?php echo number_format($indicadores['total_animales']); ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Cabezas totales</div>
         </div>
 
-        <div class="indicador">
-            <div class="icono">🍽️</div>
-            <div class="numero"><?php echo $alimentaciones_hoy; ?></div>
-            <div class="etiqueta">Alimentaciones Hoy</div>
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #fff7ed 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">📈</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">ADPV Promedio</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #c2410c;"><?php echo number_format($adpv, 2); ?> <span style="font-size: 1rem;">kg</span></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Ganancia diaria (30d)</div>
         </div>
 
-        <div class="indicador">
-            <div class="icono">⚖️</div>
-            <div class="numero"><?php echo number_format($kg_hoy, 0); ?></div>
-            <div class="etiqueta">Kg Entregados Hoy</div>
-        </div>
-
-        <div class="indicador">
-            <div class="icono">📈</div>
-            <div class="numero"><?php echo number_format($adpv_promedio, 2); ?></div>
-            <div class="etiqueta">ADPV Promedio (kg/día)</div>
-        </div>
-
-        <div class="indicador">
-            <div class="icono">🌾</div>
-            <div class="numero"><?php echo number_format($cms_promedio, 2); ?></div>
-            <div class="etiqueta">CMS Promedio (kg/día)</div>
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #fdf2f8 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">⚡</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Eficiencia</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #be185d;"><?php echo number_format($eficiencia, 3); ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Conversión (kg carne/kg MS)</div>
         </div>
     </div>
 
     <!-- GRÁFICOS -->
-    <div class="graficos">
-        <div class="grafico-card">
-            <h3>📊 Evolución de Peso (últimos 30 días)</h3>
-            <canvas id="graficoPeso" height="200"></canvas>
+    <div class="hub-grid" style="margin-bottom: 2rem;">
+        <div class="card">
+            <h3 class="card-title">📈 Evolución de Peso</h3>
+            <div style="height: 300px;">
+                <canvas id="graficoPeso"></canvas>
+            </div>
         </div>
 
-        <div class="grafico-card">
-            <h3>🌾 Consumo de MS (últimos 7 días)</h3>
-            <canvas id="graficoMS" height="200"></canvas>
+        <div class="card">
+            <h3 class="card-title">🌾 Consumo de MS</h3>
+            <div style="height: 300px;">
+                <canvas id="graficoMS"></canvas>
+            </div>
         </div>
     </div>
 
-    <!-- TABLA: LOTES ACTIVOS -->
-    <div class="tabla-card">
-        <h3>🐮 Lotes Activos</h3>
-        <?php if (count($lotes_activos) > 0): ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Lote</th>
-                        <th>Campo</th>
-                        <th>Animales</th>
-                        <th>Dieta</th>
-                        <th>Último Peso</th>
-                        <th>Días en Feedlot</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($lotes_activos as $lote): ?>
-                        <tr>
-                            <td><strong><?php echo htmlspecialchars($lote['nombre']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($lote['campo'] ?? '-'); ?></td>
-                            <td><?php echo $lote['animales']; ?></td>
-                            <td>
-                                <?php if ($lote['dieta']): ?>
-                                    <span class="badge badge-success"><?php echo htmlspecialchars($lote['dieta']); ?></span>
-                                <?php else: ?>
-                                    <span class="badge badge-warning">Sin dieta</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($lote['ultimo_peso']): ?>
-                                    <?php echo number_format($lote['ultimo_peso'], 0); ?> kg
-                                    <small style="color: #666;">(<?php echo date('d/m', strtotime($lote['fecha_peso'])); ?>)</small>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo $lote['dias_feedlot']; ?> días</td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php else: ?>
-            <p style="text-align: center; padding: 20px; color: #666;">
-                No hay lotes activos en este momento.
-            </p>
-        <?php endif; ?>
-    </div>
+    <!-- TABLAS -->
+    <div style="display: grid; grid-template-columns: 1fr; gap: 2rem;">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 class="card-title" style="margin-bottom: 0;">🐮 Gestión de Lotes Activos</h3>
+                <a href="lotes/listar.php" class="btn btn-secondary" style="font-size: 0.8rem;">Ver todos</a>
+            </div>
+            <?php if (count($lotesActivos) > 0): ?>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Lote</th>
+                                <th>Ubicación</th>
+                                <th>Stock</th>
+                                <th>Dieta</th>
+                                <th>Último Peso</th>
+                                <th>Días</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($lotesActivos as $lote): ?>
+                                <tr>
+                                    <td><strong style="color: var(--primary);"><?php echo htmlspecialchars($lote['nombre']); ?></strong></td>
+                                    <td><span style="font-size: 0.85rem; color: var(--text-muted);"><?php echo htmlspecialchars($lote['campo'] ?? 'Sin campo'); ?></span></td>
+                                    <td><span style="font-weight: 700;"><?php echo $lote['animales']; ?></span></td>
+                                    <td>
+                                        <?php if ($lote['dieta']): ?>
+                                            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;"><?php echo htmlspecialchars($lote['dieta']); ?></span>
+                                        <?php else: ?>
+                                            <span style="color: var(--danger); font-size: 0.75rem; font-weight: 600;">⚠️ Sin dieta</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($lote['ultimo_peso']): ?>
+                                            <span style="font-weight: 600;"><?php echo number_format($lote['ultimo_peso'], 1); ?> kg</span>
+                                        <?php else: ?>
+                                            <span style="color: var(--text-muted);">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><span style="color: var(--text-muted); font-size: 0.85rem;"><?php echo $lote['dias_feedlot']; ?> d</span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 3rem; color: var(--text-muted);">No hay lotes activos.</div>
+            <?php endif; ?>
+        </div>
 
-    <!-- TABLA: ÚLTIMAS ALIMENTACIONES -->
-    <div class="tabla-card">
-        <h3>🍽️ Últimas Alimentaciones</h3>
-        <?php if (count($ultimas_alimentaciones) > 0): ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Hora</th>
-                        <th>Lote</th>
-                        <th>Kg Totales</th>
-                        <th>Animales</th>
-                        <th>Kg/Animal</th>
-                        <th>Operario</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($ultimas_alimentaciones as $alim): ?>
-                        <tr>
-                            <td><?php echo date('d/m/Y', strtotime($alim['fecha'])); ?></td>
-                            <td><?php echo date('H:i', strtotime($alim['hora'])); ?></td>
-                            <td><strong><?php echo htmlspecialchars($alim['lote']); ?></strong></td>
-                            <td><?php echo number_format($alim['kg_totales_tirados'], 0); ?> kg</td>
-                            <td><?php echo $alim['animales_presentes']; ?></td>
-                            <td><?php echo number_format($alim['kg_totales_tirados'] / $alim['animales_presentes'], 2); ?> kg</td>
-                            <td><?php echo htmlspecialchars($alim['operario'] ?? 'Sistema'); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php else: ?>
-            <p style="text-align: center; padding: 20px; color: #666;">
-                No hay alimentaciones registradas recientemente.
-            </p>
-        <?php endif; ?>
+        <div class="card">
+            <h3 class="card-title">🍽️ Últimos Registros de Alimentación</h3>
+            <?php if (count($ultimasAlimentaciones) > 0): ?>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Lote</th>
+                                <th>Kg Brutos</th>
+                                <th>Kg/Animal</th>
+                                <th>Operario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ultimasAlimentaciones as $alim): ?>
+                                <tr>
+                                    <td style="font-size: 0.85rem;">
+                                        <strong><?php echo date('d/m', strtotime($alim['fecha'])); ?></strong> 
+                                        <span style="color: var(--text-muted);"><?php echo date('H:i', strtotime($alim['hora'])); ?></span>
+                                    </td>
+                                    <td><strong style="color: var(--secondary);"><?php echo htmlspecialchars($alim['lote']); ?></strong></td>
+                                    <td><span style="font-weight: 700;"><?php echo number_format($alim['kg_totales_tirados'], 0, ',', '.'); ?> kg</span></td>
+                                    <td><span style="color: var(--primary); font-weight: 600;"><?php echo number_format($alim['kg_totales_tirados'] / $alim['animales_presentes'], 2); ?></span> <small>kg/cab</small></td>
+                                    <td><span style="font-size: 0.85rem; color: var(--text-muted);"><?php echo htmlspecialchars($alim['operario'] ?? 'Mixer'); ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 3rem; color: var(--text-muted);">No hay alimentaciones recientes.</div>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
-<!-- Scripts para gráficos -->
 <script>
-// Gráfico de Evolución de Peso
-const ctxPeso = document.getElementById('graficoPeso').getContext('2d');
-const graficoPeso = new Chart(ctxPeso, {
+// Gráficos (Datos inyectados desde PHP)
+const dataPeso = <?php echo json_encode($datosPeso); ?>;
+const dataMs = <?php echo json_encode($datosMs); ?>;
+
+const formatData = (data, keyLabel, keyValue) => {
+    return {
+        labels: data.map(d => new Date(d[keyLabel]).toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'})),
+        values: data.map(d => d[keyValue])
+    };
+};
+
+const processedPeso = formatData(dataPeso, 'fecha', 'peso_promedio');
+const processedMs = formatData(dataMs, 'fecha', 'ms_total');
+
+// Gráfico Peso
+new Chart(document.getElementById('graficoPeso').getContext('2d'), {
     type: 'line',
     data: {
-        labels: [
-            <?php 
-            foreach ($datos_peso as $dato) {
-                echo "'" . date('d/m', strtotime($dato['fecha'])) . "',";
-            }
-            ?>
-        ],
+        labels: processedPeso.labels,
         datasets: [{
             label: 'Peso Promedio (kg)',
-            data: [
-                <?php 
-                foreach ($datos_peso as $dato) {
-                    echo $dato['peso_promedio'] . ",";
-                }
-                ?>
-            ],
+            data: processedPeso.values,
             borderColor: '#2c5530',
             backgroundColor: 'rgba(44, 85, 48, 0.1)',
             tension: 0.4,
-            fill: true
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: '#2c5530',
+            borderWidth: 3
         }]
     },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
+    options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { legend: { display: false } },
         scales: {
             y: {
-                beginAtZero: false
+                grid: { display: true, color: 'rgba(0,0,0,0.05)' },
+                ticks: { font: { family: 'Outfit' } }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { font: { family: 'Outfit' } }
             }
         }
     }
 });
 
-// Gráfico de Consumo de MS
-const ctxMS = document.getElementById('graficoMS').getContext('2d');
-const graficoMS = new Chart(ctxMS, {
+// Gráfico MS
+new Chart(document.getElementById('graficoMS').getContext('2d'), {
     type: 'bar',
     data: {
-        labels: [
-            <?php 
-            foreach ($datos_ms as $dato) {
-                echo "'" . date('d/m', strtotime($dato['fecha'])) . "',";
-            }
-            ?>
-        ],
+        labels: processedMs.labels,
         datasets: [{
             label: 'MS Total (kg)',
-            data: [
-                <?php 
-                foreach ($datos_ms as $dato) {
-                    echo $dato['ms_total'] . ",";
-                }
-                ?>
-            ],
-            backgroundColor: '#2c5530',
-            borderRadius: 5
+            data: processedMs.values,
+            backgroundColor: '#1e6091',
+            borderRadius: 8,
+            maxBarThickness: 30
         }]
     },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
+    options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { legend: { display: false } }, 
+        scales: { 
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { font: { family: 'Outfit' } }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { font: { family: 'Outfit' } }
             }
-        },
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
+        } 
     }
 });
 </script>
 
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

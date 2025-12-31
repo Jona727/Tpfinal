@@ -6,10 +6,20 @@
  * Función principal para obtener conexión PDO
  */
 function getConnection() {
-    $host = 'localhost';
-    $dbname = 'solufeed_el_choli';
-    $username = 'root';
-    $password = '';
+    // Cargar credenciales si no están definidas
+    if (!defined('DB_HOST')) {
+        $envPath = __DIR__ . '/env.php';
+        if (file_exists($envPath)) {
+            require_once $envPath;
+        } else {
+            die("Error: No se encuentra el archivo de configuración de entorno (config/env.php)");
+        }
+    }
+
+    $host = DB_HOST;
+    $dbname = DB_NAME;
+    $username = DB_USER;
+    $password = DB_PASS;
     
     try {
         $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
@@ -28,8 +38,8 @@ function getConnection() {
 }
 
 // ===========================================
-// FUNCIONES COMPATIBILIDAD MYSQLI (TEMPORAL)
-// Para que archivos viejos sigan funcionando
+// FUNCIONES COMPATIBILIDAD MYSQLI (DEPRECATED)
+// Mantener solo para soporte de código legado
 // ===========================================
 
 // Conexión mysqli global
@@ -37,8 +47,16 @@ $conn = null;
 
 function getMysqliConnection() {
     global $conn;
+    // Cargar credenciales si no están definidas (para redundancia)
+    if (!defined('DB_HOST')) {
+        $envPath = __DIR__ . '/env.php';
+        if (file_exists($envPath)) {
+            require_once $envPath;
+        }
+    }
+
     if ($conn === null) {
-        $conn = mysqli_connect('localhost', 'root', '', 'solufeed_el_choli');
+        $conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
         if (!$conn) {
             die("Error de conexión mysqli: " . mysqli_connect_error());
         }
@@ -48,7 +66,7 @@ function getMysqliConnection() {
 }
 
 // Inicializar conexión
-$conn = getMysqliConnection();
+// $conn = getMysqliConnection(); // DEPRECATED: No inicializar globalmente. Usar getConnection() (PDO) preferiblemente.
 
 function ejecutarConsulta($query) {
     $conn = getMysqliConnection();

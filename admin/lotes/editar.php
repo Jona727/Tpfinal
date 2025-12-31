@@ -6,10 +6,9 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión
+// Verificar permisos de administrador
+verificarAdmin();
 
 // Verificar que se recibió el ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -19,115 +18,110 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 $id_tropa = (int) $_GET['id'];
 
-// Obtener datos del lote
-$query_lote = "
+$db = getConnection();
+
+// Obtener datos del lote (PDO)
+$stmt_lote = $db->prepare("
     SELECT t.*, c.nombre as campo_nombre
     FROM tropa t
     INNER JOIN campo c ON t.id_campo = c.id_campo
-    WHERE t.id_tropa = $id_tropa
-";
-$resultado_lote = ejecutarConsulta($query_lote);
+    WHERE t.id_tropa = ?
+");
+$stmt_lote->execute([$id_tropa]);
+$lote = $stmt_lote->fetch();
 
-if (mysqli_num_rows($resultado_lote) === 0) {
+if (!$lote) {
     header('Location: listar.php');
     exit();
 }
-
-$lote = mysqli_fetch_assoc($resultado_lote);
 
 // Obtener dieta vigente actual
 $dieta_vigente = obtenerDietaVigente($id_tropa);
 $id_dieta_actual = $dieta_vigente ? $dieta_vigente['id_dieta'] : null;
 
-// Obtener campos disponibles
-$query_campos = "SELECT id_campo, nombre FROM campo WHERE activo = 1 ORDER BY nombre ASC";
-$campos_disponibles = ejecutarConsulta($query_campos);
+// Obtener campos disponibles (PDO)
+$stmt_campos = $db->query("SELECT id_campo, nombre FROM campo WHERE activo = 1 ORDER BY nombre ASC");
+$campos_disponibles = $stmt_campos->fetchAll();
 
-// Obtener dietas disponibles
-$query_dietas = "SELECT id_dieta, nombre FROM dieta WHERE activo = 1 ORDER BY nombre ASC";
-$dietas_disponibles = ejecutarConsulta($query_dietas);
+// Obtener dietas disponibles (PDO)
+$stmt_dietas = $db->query("SELECT id_dieta, nombre FROM dieta WHERE activo = 1 ORDER BY nombre ASC");
+$dietas_disponibles = $stmt_dietas->fetchAll();
+
+$mensaje = '';
+$error = '';
+$errores = [];
 
 // Procesar formulario si se envió
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Recibir datos del formulario
-    $nombre = limpiarDato($_POST['nombre']);
+    $nombre = trim($_POST['nombre']);
     $id_campo = (int) $_POST['id_campo'];
-    $categoria = limpiarDato($_POST['categoria']);
-    $fecha_inicio = limpiarDato($_POST['fecha_inicio']);
+    $categoria = trim($_POST['categoria']);
+    $fecha_inicio = $_POST['fecha_inicio'];
     $cantidad_inicial = (int) $_POST['cantidad_inicial'];
     $id_dieta_nueva = !empty($_POST['id_dieta']) ? (int) $_POST['id_dieta'] : null;
-    $fecha_cambio_dieta = !empty($_POST['fecha_cambio_dieta']) ? limpiarDato($_POST['fecha_cambio_dieta']) : date('Y-m-d');
+    $fecha_cambio_dieta = !empty($_POST['fecha_cambio_dieta']) ? $_POST['fecha_cambio_dieta'] : date('Y-m-d');
     $activo = isset($_POST['activo']) ? 1 : 0;
     
     // Validaciones
-    $errores = [];
-    
-    if (empty($nombre)) {
-        $errores[] = "El nombre del lote es obligatorio.";
-    }
-    
-    if ($id_campo <= 0) {
-        $errores[] = "Debés seleccionar un campo.";
-    }
-    
-    if (empty($fecha_inicio)) {
-        $errores[] = "La fecha de inicio es obligatoria.";
-    }
-    
-    if ($cantidad_inicial <= 0) {
-        $errores[] = "La cantidad inicial de animales debe ser mayor a 0.";
-    }
+    if (empty($nombre)) $errores[] = "El nombre del lote es obligatorio.";
+    if ($id_campo <= 0) $errores[] = "Debés seleccionar un campo.";
+    if (empty($fecha_inicio)) $errores[] = "La fecha de inicio es obligatoria.";
+    if ($cantidad_inicial <= 0) $errores[] = "La cantidad inicial de animales debe ser mayor a 0.";
     
     // Si no hay errores, actualizar el lote
     if (empty($errores)) {
-        
-        // Actualizar lote
-        $query_update = "
-            UPDATE tropa SET
-                nombre = '$nombre',
-                id_campo = $id_campo,
-                categoria = '$categoria',
-                fecha_inicio = '$fecha_inicio',
-                cantidad_inicial = $cantidad_inicial,
-                activo = $activo,
-                fecha_actualizacion = NOW()
-            WHERE id_tropa = $id_tropa
-        ";
-        
-        if (ejecutarConsulta($query_update)) {
+        try {
+            $db->beginTransaction();
+            
+            // Actualizar lote
+            $stmt_upd = $db->prepare("
+                UPDATE tropa SET
+                    nombre = ?,
+                    id_campo = ?,
+                    categoria = ?,
+                    fecha_inicio = ?,
+                    cantidad_inicial = ?,
+                    activo = ?,
+                    fecha_actualizacion = NOW()
+                WHERE id_tropa = ?
+            ");
+            
+            $stmt_upd->execute([$nombre, $id_campo, $categoria, $fecha_inicio, $cantidad_inicial, $activo, $id_tropa]);
             
             // Verificar si cambió la dieta
             $dieta_cambio = false;
             
-            if ($id_dieta_nueva !== $id_dieta_actual) {
+            if ($id_dieta_nueva != $id_dieta_actual) {
                 
                 // Si había una dieta asignada, cerrarla
                 if ($id_dieta_actual !== null) {
-                    $query_cerrar = "
+                    $stmt_cerrar = $db->prepare("
                         UPDATE tropa_dieta_asignada 
-                        SET fecha_hasta = '$fecha_cambio_dieta'
-                        WHERE id_tropa = $id_tropa
+                        SET fecha_hasta = ?
+                        WHERE id_tropa = ?
                         AND fecha_hasta IS NULL
-                    ";
-                    ejecutarConsulta($query_cerrar);
+                    ");
+                    $stmt_cerrar->execute([$fecha_cambio_dieta, $id_tropa]);
                 }
                 
                 // Si hay una nueva dieta seleccionada, asignarla
                 if ($id_dieta_nueva !== null && $id_dieta_nueva > 0) {
-                    $query_nueva_dieta = "
+                    $stmt_ins_dieta = $db->prepare("
                         INSERT INTO tropa_dieta_asignada (id_tropa, id_dieta, fecha_desde, fecha_hasta)
-                        VALUES ($id_tropa, $id_dieta_nueva, '$fecha_cambio_dieta', NULL)
-                    ";
-                    ejecutarConsulta($query_nueva_dieta);
+                        VALUES (?, ?, ?, NULL)
+                    ");
+                    $stmt_ins_dieta->execute([$id_tropa, $id_dieta_nueva, $fecha_cambio_dieta]);
                 }
                 
                 $dieta_cambio = true;
             }
             
-            $exito = "✓ Lote actualizado exitosamente.";
+            $db->commit();
+            $mensaje = "✅ Lote actualizado exitosamente.";
             if ($dieta_cambio) {
-                $exito .= " La dieta fue modificada.";
+                $mensaje .= " La dieta fue modificada.";
             }
             
             header("refresh:2;url=ver.php?id=$id_tropa");
@@ -140,8 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lote['cantidad_inicial'] = $cantidad_inicial;
             $lote['activo'] = $activo;
             
-        } else {
-            $errores[] = "Error al actualizar el lote.";
+        } catch (Exception $e) {
+            $db->rollBack();
+            $errores[] = "Error al actualizar el lote: " . $e->getMessage();
         }
     }
 }
@@ -149,62 +144,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">✏️ Editar Lote</h1>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">✏️ Editar Lote</h1>
+    <a href="ver.php?id=<?php echo $id_tropa; ?>" class="btn btn-secondary"><span>←</span> Volver</a>
+</div>
 
-<div class="tarjeta">
-    
-    <?php if (isset($exito)): ?>
-        <div class="mensaje mensaje-exito"><?php echo $exito; ?></div>
+<div class="card">
+    <?php if ($mensaje): ?>
+        <div class="card" style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1rem; margin-bottom: 1.5rem;">
+            <p style="margin-bottom: 0.5rem;"><?php echo $mensaje; ?></p>
+            <p style="font-size: 0.85rem;">Redirigiendo al detalle...</p>
+        </div>
     <?php endif; ?>
-    
+
     <?php if (!empty($errores)): ?>
-        <div class="mensaje mensaje-error">
-            <strong>Se encontraron los siguientes errores:</strong>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
-                <?php foreach ($errores as $error): ?>
-                    <li><?php echo $error; ?></li>
+        <div class="card" style="background: #fee2e2; border-left: 5px solid var(--danger); color: #991b1b; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <p style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Se encontraron errores:</p>
+            <ul style="margin-left: 1.25rem; font-size: 0.9rem;">
+                <?php foreach ($errores as $err): ?>
+                    <li><?php echo $err; ?></li>
                 <?php endforeach; ?>
             </ul>
         </div>
     <?php endif; ?>
-    
-    <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-        ℹ️ <strong>Atención:</strong> Los cambios en la cantidad inicial no afectan los movimientos 
+
+    <div style="background: #f1f5f9; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--secondary); margin-bottom: 2rem; font-size: 0.9rem;">
+        ℹ️ <strong>Recordatorio:</strong> Los cambios en la cantidad inicial no afectan los movimientos 
         ya registrados. Para ajustar animales presentes, usá el módulo de movimientos.
     </div>
     
     <form method="POST" class="formulario">
         
-        <!-- Nombre del lote -->
-        <div class="form-grupo">
-            <label for="nombre">Nombre del Lote *</label>
-            <input 
-                type="text" 
-                id="nombre" 
-                name="nombre" 
-                required 
-                placeholder="Ej: Novillos Lote 1, Terneros Recría, etc."
-                value="<?php echo htmlspecialchars($lote['nombre']); ?>"
-            >
-            <small>El nombre debe ser descriptivo y único para identificar el lote fácilmente.</small>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="form-group">
+                <label for="nombre">Nombre del Lote *</label>
+                <input type="text" id="nombre" name="nombre" required value="<?php echo htmlspecialchars($lote['nombre']); ?>">
+                <small style="color: var(--text-muted); font-size: 0.8rem;">Nombre identificador único.</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="id_campo">Campo / Ubicación *</label>
+                <select id="id_campo" name="id_campo" required>
+                    <option value="">-- Seleccioná un campo --</option>
+                    <?php foreach ($campos_disponibles as $campo): ?>
+                        <option value="<?php echo $campo['id_campo']; ?>" <?php echo ($lote['id_campo'] == $campo['id_campo']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($campo['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
         
-        <!-- Campo -->
-        <div class="form-grupo">
-            <label for="id_campo">Campo *</label>
-            <select id="id_campo" name="id_campo" required>
-                <option value="">-- Seleccioná un campo --</option>
-                <?php 
-                mysqli_data_seek($campos_disponibles, 0); // Resetear puntero
-                while ($campo = mysqli_fetch_assoc($campos_disponibles)): 
-                ?>
-                    <option value="<?php echo $campo['id_campo']; ?>"
-                        <?php echo ($lote['id_campo'] == $campo['id_campo']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($campo['nombre']); ?>
-                    </option>
-                <?php endwhile; ?>
-            </select>
-            <small>Ubicación física donde se encuentra el lote.</small>
+        <div class="form-group">
+            <label for="categoria">Categoría</label>
+            <input type="text" id="categoria" name="categoria" value="<?php echo htmlspecialchars($lote['categoria']); ?>">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
+            <div class="form-group">
+                <label for="fecha_inicio">Fecha de Inicio *</label>
+                <input type="date" id="fecha_inicio" name="fecha_inicio" required value="<?php echo $lote['fecha_inicio']; ?>">
+            </div>
+            
+            <div class="form-group">
+                <label for="cantidad_inicial">Cantidad Inicial *</label>
+                <input type="number" id="cantidad_inicial" name="cantidad_inicial" required min="1" value="<?php echo $lote['cantidad_inicial']; ?>">
+            </div>
         </div>
         
         <!-- Categoría -->
@@ -250,100 +255,60 @@ include '../../includes/header.php';
             <small>Cantidad de animales con la que comenzó el lote.</small>
         </div>
         
-        <!-- Información adicional -->
-        <div class="form-grupo">
-            <small style="color: #666;">
-                <strong>Creado:</strong> <?php echo formatearFecha($lote['fecha_creacion']); ?>
-                <?php if ($lote['fecha_actualizacion']): ?>
-                    | <strong>Última actualización:</strong> <?php echo formatearFecha($lote['fecha_actualizacion']); ?>
-                <?php endif; ?>
-            </small>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin: 1.5rem 0; display: flex; gap: 1rem; background: var(--bg-main); padding: 0.75rem; border-radius: 8px;">
+            <span><strong>Creado:</strong> <?php echo date('d/m/Y H:i', strtotime($lote['fecha_creacion'])); ?></span>
+            <?php if ($lote['fecha_actualizacion']): ?>
+                <span>| <strong>Actualizado:</strong> <?php echo date('d/m/Y H:i', strtotime($lote['fecha_actualizacion'])); ?></span>
+            <?php endif; ?>
+        </div>
+        
+        <div style="background: var(--bg-main); padding: 2rem; border-radius: var(--radius); border: 1px solid var(--border); margin: 2rem 0;">
+            <h3 style="color: var(--primary); font-weight: 800; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📋</span> Gestión de Dieta
+            </h3>
+            
+            <?php if ($dieta_vigente): ?>
+                <div style="background: white; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--primary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                    📌 <strong>Dieta actual:</strong> <?php echo htmlspecialchars($dieta_vigente['dieta_nombre']); ?>
+                    <span style="display: block; color: var(--text-muted); font-size: 0.8rem;">Vigente desde: <?php echo date('d/m/Y', strtotime($dieta_vigente['fecha_desde'])); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="id_dieta">Cambiar Dieta Sugerida</label>
+                    <select id="id_dieta" name="id_dieta">
+                        <option value="">-- <?php echo $dieta_vigente ? 'Mantener actual' : 'Sin asignar'; ?> --</option>
+                        <?php foreach ($dietas_disponibles as $dieta): 
+                            $es_actual = ($id_dieta_actual && $dieta['id_dieta'] == $id_dieta_actual);
+                        ?>
+                            <option value="<?php echo $dieta['id_dieta']; ?>" <?php echo $es_actual ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($dieta['nombre']); ?>
+                                <?php echo $es_actual ? ' (actual)' : ''; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="fecha_cambio_dieta">Fecha del Cambio</label>
+                    <input type="date" id="fecha_cambio_dieta" name="fecha_cambio_dieta" value="<?php echo date('Y-m-d'); ?>">
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">¿Desde cuándo rige el cambio?</small>
+                </div>
+            </div>
         </div>
         
         <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
         
-        <h3 style="color: #2c5530; margin-bottom: 1rem;">📋 Gestión de Dieta</h3>
-        
-        <?php if ($dieta_vigente): ?>
-            <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-                📌 <strong>Dieta actual:</strong> <?php echo htmlspecialchars($dieta_vigente['dieta_nombre']); ?>
-                <br>Asignada desde: <?php echo formatearFecha($dieta_vigente['fecha_desde']); ?>
-            </div>
-        <?php else: ?>
-            <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-                ⚠️ Este lote no tiene dieta asignada actualmente.
-            </div>
-        <?php endif; ?>
-        
-        <!-- Dieta -->
-        <div class="form-grupo">
-            <label for="id_dieta">
-                <?php echo $dieta_vigente ? 'Cambiar a otra Dieta' : 'Asignar Dieta'; ?>
-            </label>
-            <select id="id_dieta" name="id_dieta">
-                <option value="">-- <?php echo $dieta_vigente ? 'Mantener actual' : 'Sin dieta'; ?> --</option>
-                <?php 
-                mysqli_data_seek($dietas_disponibles, 0); // Resetear puntero
-                while ($dieta = mysqli_fetch_assoc($dietas_disponibles)): 
-                    // Si es la dieta actual, marcarla
-                    $es_actual = ($id_dieta_actual && $dieta['id_dieta'] == $id_dieta_actual);
-                ?>
-                    <option value="<?php echo $dieta['id_dieta']; ?>"
-                        <?php echo $es_actual ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($dieta['nombre']); ?>
-                        <?php echo $es_actual ? ' (actual)' : ''; ?>
-                    </option>
-                <?php endwhile; ?>
-            </select>
-            <small>
-                <?php if ($dieta_vigente): ?>
-                    Si seleccionás otra dieta, la actual se cerrará y se asignará la nueva.
-                <?php else: ?>
-                    Seleccioná la dieta teórica que se usará para este lote.
-                <?php endif; ?>
-            </small>
-        </div>
-        
-        <!-- Fecha de cambio de dieta -->
-        <div class="form-grupo">
-            <label for="fecha_cambio_dieta">Fecha del Cambio de Dieta</label>
-            <input 
-                type="date" 
-                id="fecha_cambio_dieta" 
-                name="fecha_cambio_dieta" 
-                class="input-mediano"
-                value="<?php echo date('Y-m-d'); ?>"
-            >
-            <small>Fecha desde la cual la nueva dieta estará vigente (por defecto: hoy).</small>
-        </div>
-        
-        <?php if (mysqli_num_rows($dietas_disponibles) == 0): ?>
-            <div class="mensaje mensaje-error">
-                ⚠️ No hay dietas activas disponibles. 
-                <a href="../dietas/crear.php" target="_blank">Creá al menos una dieta</a> para poder asignarla al lote.
-            </div>
-        <?php endif; ?>
-        
-        <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
-        
-        <!-- Estado activo -->
-        <div class="form-grupo">
-            <label>
-                <input 
-                    type="checkbox" 
-                    name="activo" 
-                    value="1" 
-                    <?php echo $lote['activo'] ? 'checked' : ''; ?>
-                >
-                Lote activo
-            </label>
-            <small>Los lotes inactivos no aparecen en las opciones de registro de alimentación/pesadas.</small>
+        <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-main); border-radius: var(--radius); display: flex; align-items: center; gap: 1rem;">
+            <input type="checkbox" name="activo" id="activo" value="1" <?php echo $lote['activo'] ? 'checked' : ''; ?> style="width: 20px; height: 20px;">
+            <label for="activo" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Lote activo (aparece en Hub de Campo)</label>
         </div>
         
         <!-- Botones -->
-        <div class="btn-grupo">
-            <button type="submit" class="btn btn-primario">💾 Guardar Cambios</button>
-            <a href="ver.php?id=<?php echo $id_tropa; ?>" class="btn btn-secundario">❌ Cancelar</a>
+        <div style="display: flex; gap: 1rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <button type="submit" class="btn btn-primary btn-lg" style="flex: 1;">💾 Guardar Cambios</button>
+            <a href="ver.php?id=<?php echo $id_tropa; ?>" class="btn btn-secondary btn-lg" style="flex: 0.3;">Cancelar</a>
         </div>
         
     </form>
@@ -352,60 +317,53 @@ include '../../includes/header.php';
 
 <!-- Historial de cambios de dieta -->
 <?php
-$query_historial = "
+$stmt_hist = $db->prepare("
     SELECT 
         tda.fecha_desde,
         tda.fecha_hasta,
         d.nombre as dieta_nombre
     FROM tropa_dieta_asignada tda
     INNER JOIN dieta d ON tda.id_dieta = d.id_dieta
-    WHERE tda.id_tropa = $id_tropa
+    WHERE tda.id_tropa = ?
     ORDER BY tda.fecha_desde DESC
-";
-$historial_dietas = ejecutarConsulta($query_historial);
+");
+$stmt_hist->execute([$id_tropa]);
+$historial_dietas = $stmt_hist->fetchAll();
 ?>
 
-<?php if (mysqli_num_rows($historial_dietas) > 0): ?>
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📜 Historial de Dietas Asignadas</h2>
+<?php if (count($historial_dietas) > 0): ?>
+    <h3 class="card-title" style="margin-top: 3rem;"><span>📜</span> Historial de Dietas Asignadas</h3>
     
-    <div class="tabla-responsive">
+    <div class="table-container">
         <table>
             <thead>
                 <tr>
                     <th>Dieta</th>
-                    <th>Fecha Desde</th>
-                    <th>Fecha Hasta</th>
-                    <th>Estado</th>
+                    <th style="text-align: center;">Desde</th>
+                    <th style="text-align: center;">Hasta</th>
+                    <th style="text-align: right;">Estado</th>
                 </tr>
             </thead>
             <tbody>
-                <?php while ($hist = mysqli_fetch_assoc($historial_dietas)): ?>
+                <?php foreach ($historial_dietas as $hist): ?>
                     <tr>
-                        <td><strong><?php echo htmlspecialchars($hist['dieta_nombre']); ?></strong></td>
-                        <td><?php echo formatearFecha($hist['fecha_desde']); ?></td>
-                        <td>
-                            <?php 
-                            if ($hist['fecha_hasta']) {
-                                echo formatearFecha($hist['fecha_hasta']);
-                            } else {
-                                echo '<span style="color: #28a745; font-weight: 600;">Vigente</span>';
-                            }
-                            ?>
+                        <td style="font-weight: 700; color: var(--primary);"><?php echo htmlspecialchars($hist['dieta_nombre']); ?></td>
+                        <td style="text-align: center;"><?php echo date('d/m/Y', strtotime($hist['fecha_desde'])); ?></td>
+                        <td style="text-align: center;">
+                            <?php echo $hist['fecha_hasta'] ? date('d/m/Y', strtotime($hist['fecha_hasta'])) : '-'; ?>
                         </td>
-                        <td>
+                        <td style="text-align: right;">
                             <?php if (!$hist['fecha_hasta']): ?>
-                                <span class="estado estado-activo">Actual</span>
+                                <span class="badge" style="background: #dcfce7; color: #166534;">Vigente</span>
                             <?php else: ?>
-                                <span class="estado estado-inactivo">Finalizada</span>
+                                <span class="badge" style="background: #f1f5f9; color: #475569;">Finalizada</span>
                             <?php endif; ?>
                         </td>
                     </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
-</div>
 <?php endif; ?>
 
 <?php include '../../includes/footer.php'; ?>

@@ -3,6 +3,9 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
+// Verificar permisos de administrador
+verificarAdmin();
+
 $page_title = "Crear Insumo";
 $db = getConnection();
 
@@ -48,157 +51,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once '../../includes/header.php';
 ?>
 
-<style>
-.crear-container {
-    max-width: 800px;
-    margin: 0 auto;
-}
 
-.form-card {
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
 
-.form-group {
-    margin-bottom: 20px;
-}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">🌾 Crear Nuevo Insumo</h1>
+    <a href="listar.php" class="btn btn-secondary"><span>←</span> Cancelar</a>
+</div>
 
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #333;
-}
-
-.form-group input,
-.form-group select {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-    font-size: 1em;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-    border-color: #2c5530;
-    outline: none;
-}
-
-.form-group small {
-    display: block;
-    margin-top: 5px;
-    color: #666;
-    font-size: 0.9em;
-}
-
-.btn-group {
-    display: flex;
-    gap: 10px;
-    margin-top: 30px;
-}
-
-.btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 5px;
-    font-size: 1em;
-    font-weight: bold;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: all 0.3s;
-}
-
-.btn-primary {
-    background: #2c5530;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #3d7043;
-}
-
-.btn-secondary {
-    background: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background: #5a6268;
-}
-
-.alert {
-    padding: 15px 20px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-}
-
-.alert-success {
-    background: #d4edda;
-    border-left: 4px solid #28a745;
-    color: #155724;
-}
-
-.alert-error {
-    background: #f8d7da;
-    border-left: 4px solid #dc3545;
-    color: #721c24;
-}
-
-.info-box {
-    background: #e7f3ff;
-    padding: 20px;
-    border-radius: 8px;
-    border-left: 4px solid #0066cc;
-    margin-bottom: 20px;
-}
-
-.info-box h4 {
-    margin: 0 0 10px 0;
-    color: #0066cc;
-}
-
-.info-box ul {
-    margin: 10px 0 0 20px;
-}
-</style>
-
-<div class="crear-container">
-    <div style="margin-bottom: 20px;">
-        <a href="listar.php" style="color: #2c5530; text-decoration: none;">
-            ← Volver a Insumos
-        </a>
-    </div>
-
-    <div class="form-card">
-        <h1 style="margin: 0 0 10px 0;">🌾 Crear Nuevo Insumo</h1>
-        <p style="color: #666; margin: 0 0 30px 0;">
-            Ingresá los datos del nuevo insumo para el feedlot
-        </p>
+<div class="card">
+    <p style="color: var(--text-muted); margin: 0 0 2.5rem 0; font-weight: 500;">
+        Ingresá los datos del nuevo insumo para el feedlot
+    </p>
 
         <?php if ($mensaje): ?>
-            <div class="alert alert-success">
-                <?php echo $mensaje; ?>
-                <br><br>
-                <a href="listar.php" style="color: #155724; font-weight: bold;">
-                    Ver lista de insumos →
-                </a>
+            <div class="card" style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1rem; margin-bottom: 1.5rem;">
+                <p style="margin-bottom: 0.5rem;"><?php echo $mensaje; ?></p>
+                <a href="listar.php" style="color: #166534; font-weight: 700; text-decoration: underline;">Ver lista de insumos →</a>
             </div>
         <?php endif; ?>
 
         <?php if ($error): ?>
-            <div class="alert alert-error">
+            <div class="card" style="background: #fee2e2; border-left: 5px solid var(--danger); color: #991b1b; padding: 1rem; margin-bottom: 1.5rem;">
                 ❌ <?php echo $error; ?>
             </div>
         <?php endif; ?>
 
-        <div class="info-box">
-            <h4>💡 Información sobre Materia Seca (MS)</h4>
-            <p>El % de MS es la proporción de nutrientes sólidos del insumo (excluyendo el agua).</p>
-            <ul>
+        <div style="background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius); border-left: 4px solid var(--info); margin-bottom: 2rem;">
+            <h4 style="color: var(--secondary); margin-bottom: 0.75rem; font-weight: 800;">💡 Información sobre Materia Seca (MS)</h4>
+            <p style="font-size: 0.95rem; line-height: 1.6;">El % de MS es la proporción de nutrientes sólidos del insumo (excluyendo el agua).</p>
+            <ul style="margin: 0.75rem 0 0 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
                 <li><strong>Granos secos:</strong> 85-90% MS</li>
                 <li><strong>Forrajes conservados:</strong> 85-90% MS</li>
                 <li><strong>Silajes:</strong> 30-40% MS</li>
@@ -207,58 +88,54 @@ require_once '../../includes/header.php';
         </div>
 
         <form method="POST" action="">
-            <div class="form-group">
-                <label for="nombre">Nombre del Insumo *</label>
-                <input type="text" 
-                       id="nombre" 
-                       name="nombre" 
-                       required
-                       placeholder="Ej: Maíz grano"
-                       value="<?php echo isset($_POST['nombre']) ? htmlspecialchars($_POST['nombre']) : ''; ?>">
-                <small>Nombre descriptivo del insumo</small>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Insumo *</label>
+                    <input type="text" 
+                           id="nombre" 
+                           name="nombre" 
+                           required
+                           placeholder="Ej: Maíz grano"
+                           value="<?php echo isset($_POST['nombre']) ? htmlspecialchars($_POST['nombre']) : ''; ?>">
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Nombre descriptivo del insumo</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="tipo">Tipo de Insumo *</label>
+                    <select id="tipo" name="tipo" required>
+                        <option value="">-- Seleccionar tipo --</option>
+                        <option value="GRANO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'GRANO') ? 'selected' : ''; ?>>Grano</option>
+                        <option value="FORRAJE" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'FORRAJE') ? 'selected' : ''; ?>>Forraje</option>
+                        <option value="CONCENTRADO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'CONCENTRADO') ? 'selected' : ''; ?>>Concentrado</option>
+                        <option value="SUPLEMENTO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'SUPLEMENTO') ? 'selected' : ''; ?>>Suplemento</option>
+                    </select>
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Categoría del insumo</small>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="tipo">Tipo de Insumo *</label>
-                <select id="tipo" name="tipo" required>
-                    <option value="">-- Seleccionar tipo --</option>
-                    <option value="GRANO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'GRANO') ? 'selected' : ''; ?>>
-                        Grano
-                    </option>
-                    <option value="FORRAJE" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'FORRAJE') ? 'selected' : ''; ?>>
-                        Forraje
-                    </option>
-                    <option value="CONCENTRADO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'CONCENTRADO') ? 'selected' : ''; ?>>
-                        Concentrado
-                    </option>
-                    <option value="SUPLEMENTO" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'SUPLEMENTO') ? 'selected' : ''; ?>>
-                        Suplemento
-                    </option>
-                </select>
-                <small>Categoría del insumo</small>
-            </div>
-
-            <div class="form-group">
+            <div class="form-group" style="max-width: 300px;">
                 <label for="porcentaje_ms">Porcentaje de Materia Seca (%) *</label>
-                <input type="number" 
-                       id="porcentaje_ms" 
-                       name="porcentaje_ms" 
-                       step="0.1" 
-                       min="0" 
-                       max="100" 
-                       required
-                       placeholder="Ej: 86.5"
-                       value="<?php echo isset($_POST['porcentaje_ms']) ? $_POST['porcentaje_ms'] : ''; ?>">
-                <small>Porcentaje de materia seca del insumo (0-100)</small>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="number" 
+                           id="porcentaje_ms" 
+                           name="porcentaje_ms" 
+                           step="0.1" 
+                           min="0" 
+                           max="100" 
+                           required
+                           placeholder="Ej: 86.5"
+                           style="font-weight: 800; font-size: 1.2rem; text-align: center;"
+                           value="<?php echo isset($_POST['porcentaje_ms']) ? $_POST['porcentaje_ms'] : ''; ?>">
+                    <span style="font-weight: 800; color: var(--text-muted);">%</span>
+                </div>
+                <small style="color: var(--text-muted); font-size: 0.8rem;">Porcentaje de materia seca del insumo (0-100)</small>
             </div>
 
-            <div class="btn-group">
-                <button type="submit" class="btn btn-primary">
-                    ✅ Crear Insumo
+            <div style="display: flex; gap: 1rem; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex: 1;">
+                    <span>✅</span> Crear Nuevo Insumo
                 </button>
-                <a href="listar.php" class="btn btn-secondary">
-                    ❌ Cancelar
-                </a>
+                <a href="listar.php" class="btn btn-secondary btn-lg" style="flex: 0.3;">Cancelar</a>
             </div>
         </form>
     </div>

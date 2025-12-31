@@ -1,0 +1,23 @@
+{
+  "name": "Solufeed Campo",
+  "short_name": "Solufeed",
+  "description": "Sistema de Gestión de Feedlot - Módulo de Campo",
+  "start_url": "/solufeed/admin/campo/index.php",
+  "scope": "/solufeed/",
+  "display": "standalone",
+  "background_color": "#1a3a1f",
+  "theme_color": "#2c5530",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2395/2395796.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2395/2395796.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

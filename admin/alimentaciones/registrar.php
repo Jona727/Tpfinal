@@ -7,10 +7,8 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión y rol de campo
+verificarCampo();
 
 // Verificar si viene un lote pre-seleccionado
 $lote_preseleccionado = isset($_GET['lote']) ? (int) $_GET['lote'] : null;
@@ -222,18 +220,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_alimentacion'
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">🍽️ Registrar Alimentación</h1>
+<h1 style="font-weight: 800; color: var(--primary); margin-bottom: 2rem;">🍽️ Registrar Alimentación</h1>
 
-<div class="tarjeta">
+<!-- Indicador de estado para PWA -->
+<div id="connection-status" style="display:none; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;"></div>
+
+<div class="card">
     
     <?php if (isset($exito)): ?>
-        <div class="mensaje mensaje-exito"><?php echo $exito; ?></div>
+        <div class="card" style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1rem; margin-bottom: 1.5rem;">
+            <?php echo $exito; ?>
+        </div>
     <?php endif; ?>
     
     <?php if (!empty($errores)): ?>
-        <div class="mensaje mensaje-error">
-            <strong>Se encontraron los siguientes errores:</strong>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
+        <div class="card" style="background: #fee2e2; border-left: 5px solid var(--danger); color: #991b1b; padding: 1rem; margin-bottom: 1.5rem;">
+            <strong style="display: block; margin-bottom: 0.5rem;">Se encontraron errores:</strong>
+            <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">
                 <?php foreach ($errores as $error): ?>
                     <li><?php echo $error; ?></li>
                 <?php endforeach; ?>
@@ -244,7 +247,7 @@ include '../../includes/header.php';
     <form method="POST" class="formulario" id="formAlimentacion">
         
         <!-- PASO 1: Seleccionar Lote -->
-        <h3 style="color: #2c5530; margin-bottom: 1rem;">📍 Paso 1: Seleccionar Lote</h3>
+        <h3 class="card-title"><span>📍</span> Paso 1: Seleccionar Lote</h3>
         
         <div class="form-grupo">
             <label for="id_tropa">Lote a Alimentar *</label>
@@ -262,18 +265,25 @@ include '../../includes/header.php';
         <?php if ($lote_seleccionado): ?>
             
             <!-- Información del lote seleccionado -->
-            <div style="background: #e3f2fd; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
-                <strong>📊 Lote seleccionado:</strong> <?php echo htmlspecialchars($lote_seleccionado['nombre']); ?>
-                <br>
-                <strong>🐄 Animales presentes:</strong> <?php echo $animales_presentes; ?>
-                <br>
-                <strong>📋 Dieta vigente:</strong> 
-                <?php if ($dieta_vigente): ?>
-                    <span style="color: #28a745;">✓ <?php echo htmlspecialchars($dieta_vigente['dieta_nombre']); ?></span>
-                    <a href="../dietas/ver.php?id=<?php echo $dieta_vigente['id_dieta']; ?>" target="_blank" style="margin-left: 0.5rem;">(Ver composición)</a>
-                <?php else: ?>
-                    <span style="color: #dc3545;">⚠️ Sin dieta asignada</span>
-                <?php endif; ?>
+            <div class="card" style="background: var(--bg-main); border: 1px solid var(--border); margin-bottom: 2rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Lote</small>
+                        <strong style="color: var(--primary);"><?php echo htmlspecialchars($lote_seleccionado['nombre']); ?></strong>
+                    </div>
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Animales</small>
+                        <strong><?php echo $animales_presentes; ?> cab</strong>
+                    </div>
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Dieta Vigente</small>
+                        <?php if ($dieta_vigente): ?>
+                            <span style="color: var(--success); font-weight: 700;"><?php echo htmlspecialchars($dieta_vigente['dieta_nombre']); ?></span>
+                        <?php else: ?>
+                            <span style="color: var(--danger); font-weight: 700;">Sin dieta</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
             
             <?php if (!$dieta_vigente): ?>
@@ -289,7 +299,7 @@ include '../../includes/header.php';
                 <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
                 
                 <!-- PASO 2: Datos de la Alimentación -->
-                <h3 style="color: #2c5530; margin-bottom: 1rem;">📝 Paso 2: Datos de la Alimentación</h3>
+                <h3 class="card-title"><span>📝</span> Paso 2: Datos de la Alimentación</h3>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                     
@@ -320,7 +330,7 @@ include '../../includes/header.php';
                     <!-- Nivel de sobras -->
                     <div class="form-grupo">
                         <label for="sobrante_nivel">Estado del Comedero *</label>
-                        <select id="sobrante_nivel" name="sobrante_nivel" required>
+                        <select id="sobrante_nivel" name="sobrante_nivel" required style="font-weight: 700;">
                             <option value="SIN_SOBRAS">🟢 Sin sobras</option>
                             <option value="POCAS_SOBRAS">🟡 Pocas sobras</option>
                             <option value="NORMAL" selected>🔵 Normal</option>
@@ -334,21 +344,21 @@ include '../../includes/header.php';
                 <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
                 
                 <!-- PASO 3: Mezcla Real por Insumo -->
-                <h3 style="color: #2c5530; margin-bottom: 1rem;">🌾 Paso 3: Mezcla Real Entregada</h3>
+                <h3 class="card-title"><span>🌾</span> Paso 3: Mezcla Real Entregada</h3>
                 
-                <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-                    ℹ️ Ingresá los <strong>kg reales</strong> que salieron del mixer para cada insumo.
-                    El sistema calculará automáticamente la Materia Seca.
+                <div class="card" style="background: #eef2ff; border: none; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 1.5rem;">ℹ️</div>
+                    <div style="font-size: 0.9rem; color: var(--secondary); font-weight: 500;">
+                        Ingresá los <strong>kg totales</strong> del mixer y luego los <strong>reales</strong> que salieron para cada insumo.
+                    </div>
                 </div>
                 
-                <div class="tabla-responsive">
+                <div class="table-container" style="margin-bottom: 2rem;">
                     <table>
                         <thead>
-                            <tr style="background: #f8f9fa;">
+                            <tr>
                                 <th>Insumo</th>
-                                <th>Tipo</th>
                                 <th>% MS</th>
-                                <th style="width: 120px;">% Teórico</th>
                                 <th style="width: 150px;">Kg Sugeridos</th>
                                 <th style="width: 150px;">Kg Reales *</th>
                             </tr>
@@ -356,15 +366,14 @@ include '../../includes/header.php';
                         <tbody>
                             <?php foreach ($insumos_dieta as $insumo): ?>
                                 <tr>
-                                    <td><strong><?php echo htmlspecialchars($insumo['nombre']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($insumo['tipo']); ?></td>
                                     <td>
-                                        <span style="background: #e3f2fd; padding: 0.3rem 0.6rem; border-radius: 15px; font-size: 0.9rem;">
-                                            <?php echo formatearNumero($insumo['porcentaje_ms'], 2); ?>%
-                                        </span>
+                                        <strong style="display: block; color: var(--text-main);"><?php echo htmlspecialchars($insumo['nombre']); ?></strong>
+                                        <small style="color: var(--text-muted);"><?php echo htmlspecialchars($insumo['tipo']); ?> | <?php echo formatearNumero($insumo['porcentaje_teorico'], 1); ?>% ración</small>
                                     </td>
-                                    <td style="text-align: center;">
-                                        <?php echo formatearNumero($insumo['porcentaje_teorico'], 2); ?>%
+                                    <td>
+                                        <span style="background: var(--bg-main); padding: 4px 10px; border-radius: 50px; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--border);">
+                                            <?php echo formatearNumero($insumo['porcentaje_ms'], 1); ?>%
+                                        </span>
                                     </td>
                                     <td>
                                         <input 
@@ -372,7 +381,7 @@ include '../../includes/header.php';
                                             class="kg-sugerido" 
                                             data-porcentaje="<?php echo $insumo['porcentaje_teorico']; ?>"
                                             readonly 
-                                            style="background: #f8f9fa; text-align: center; width: 100%; padding: 0.5rem;"
+                                            style="background: #f1f5f9; text-align: center; font-weight: 600; border-color: transparent;"
                                             placeholder="0.0"
                                         >
                                     </td>
@@ -383,8 +392,9 @@ include '../../includes/header.php';
                                             class="kg-real"
                                             step="0.1" 
                                             min="0"
+                                            inputmode="decimal"
                                             placeholder="0.0"
-                                            style="width: 100%; padding: 0.5rem; text-align: center;"
+                                            style="text-align: center; font-weight: 800; border-bottom: 3px solid var(--border);"
                                             data-ms="<?php echo $insumo['porcentaje_ms']; ?>"
                                         >
                                     </td>
@@ -392,9 +402,9 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                             
                             <!-- Fila de totales -->
-                            <tr style="background: #f8f9fa; font-weight: bold;">
-                                <td colspan="5" style="text-align: right; padding: 1rem;">
-                                    TOTAL DE LA MEZCLA:
+                            <tr style="background: #f8fafc; font-weight: bold;">
+                                <td colspan="3" style="text-align: right; padding: 1.5rem; font-size: 1.1rem; color: var(--primary);">
+                                    TOTAL DEL MIXER (Kg):
                                 </td>
                                 <td style="padding: 1rem;">
                                     <input 
@@ -404,8 +414,9 @@ include '../../includes/header.php';
                                         step="0.1" 
                                         min="0"
                                         required
-                                        placeholder="0.0"
-                                        style="width: 100%; padding: 0.5rem; text-align: center; font-size: 1.1rem; font-weight: bold; border: 2px solid #2c5530;"
+                                        inputmode="decimal"
+                                        placeholder="TOTAL"
+                                        style="width: 100%; padding: 1rem; text-align: center; font-size: 1.5rem; font-weight: 900; border: 3px solid var(--primary); color: var(--primary); background: white;"
                                     >
                                 </td>
                             </tr>
@@ -413,29 +424,29 @@ include '../../includes/header.php';
                     </table>
                 </div>
                 
-                <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-radius: 6px;">
-                    <strong>📊 Resumen automático:</strong>
-                    <div style="margin-top: 0.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div>
-                            <small>Suma de kg reales:</small><br>
-                            <strong id="suma-kg-reales" style="font-size: 1.2rem; color: #2c5530;">0.0 kg</strong>
+                <div class="card" style="background: var(--bg-main); border: 2px dashed var(--border); padding: 1.5rem; margin-bottom: 2rem;">
+                    <strong style="display: block; color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; margin-bottom: 1rem; letter-spacing: 1px;">📊 Resumen automático</strong>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
+                        <div style="text-align: center;">
+                            <div id="suma-kg-reales" style="font-size: 1.75rem; font-weight: 800; color: var(--primary);">0.0 <small style="font-size: 50%;">kg</small></div>
+                            <small style="font-weight: 600; color: var(--text-muted);">Suma Reales</small>
                         </div>
-                        <div>
-                            <small>Total de MS calculado:</small><br>
-                            <strong id="total-ms" style="font-size: 1.2rem; color: #2c5530;">0.0 kg MS</strong>
+                        <div style="text-align: center;">
+                            <div id="total-ms" style="font-size: 1.75rem; font-weight: 800; color: var(--secondary);">0.0 <small style="font-size: 50%;">kg MS</small></div>
+                            <small style="font-weight: 600; color: var(--text-muted);">Materia Seca</small>
                         </div>
-                        <div>
-                            <small>MS por animal:</small><br>
-                            <strong id="ms-por-animal" style="font-size: 1.2rem; color: #2c5530;">0.0 kg</strong>
+                        <div style="text-align: center;">
+                            <div id="ms-por-animal" style="font-size: 1.75rem; font-weight: 800; color: var(--accent);">0.0 <small style="font-size: 50%;">kg/an</small></div>
+                            <small style="font-weight: 600; color: var(--text-muted);">MS por Animal</small>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Botones -->
-                <div class="btn-grupo">
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                     <input type="hidden" name="guardar_alimentacion" value="1">
-                    <button type="submit" class="btn btn-primario">💾 Guardar Alimentación</button>
-                    <a href="../lotes/ver.php?id=<?php echo $id_lote_actual; ?>" class="btn btn-secundario">❌ Cancelar</a>
+                    <button type="submit" class="btn btn-primary" style="flex: 2; padding: 1.25rem;">💾 Guardar Alimentación</button>
+                    <a href="../campo/index.php" class="btn btn-secondary" style="flex: 1; padding: 1.25rem;">❌ Cancelar</a>
                 </div>
                 
             <?php endif; ?>
@@ -519,3 +530,44 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../../includes/footer.php'; ?>
+<script src="/solufeed/assets/js/offline_manager.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formAlimentacion');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        // Si estamos offline, interceptamos el envío
+        if (!navigator.onLine) {
+            e.preventDefault();
+            
+            // Recolectar datos del formulario
+            const formData = new FormData(form);
+            const data = {};
+            formData.forEach((value, key) => {
+                // Manejar arrays como kg_real[id]
+                if (key.includes('[')) {
+                    const baseKey = key.split('[')[0];
+                    const id = key.split('[')[1].replace(']', '');
+                    if (!data[baseKey]) data[baseKey] = {};
+                    data[baseKey][id] = value;
+                } else {
+                    data[baseKey || key] = value;
+                }
+            });
+            
+            // Añadir bandera para el servidor
+            data['guardar_alimentacion'] = '1';
+            data['origen_registro'] = 'OFFLINE';
+
+            // Guardar en la cola local
+            OfflineManager.saveToQueue(window.location.href, data, 'alimentacion');
+            
+            // Redirigir al hub después de un momento
+            setTimeout(() => {
+                window.location.href = '../campo/index.php';
+            }, 3000);
+        }
+    });
+});
+</script>

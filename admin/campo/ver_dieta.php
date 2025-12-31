@@ -4,6 +4,8 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
+verificarSesion();
+
 $page_title = "Ver Dieta del Lote";
 $db = getConnection();
 

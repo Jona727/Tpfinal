@@ -6,10 +6,9 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión
+// Verificar permisos de administrador
+verificarAdmin();
 
 // Verificar que se recibió el ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -19,24 +18,25 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 $id_tropa = (int) $_GET['id'];
 
-// Obtener datos del lote
-$query_lote = "
+$db = getConnection();
+
+// Obtener datos del lote (PDO)
+$stmt_lote = $db->prepare("
     SELECT 
         t.*,
         c.nombre as campo_nombre,
         c.ubicacion as campo_ubicacion
     FROM tropa t
     INNER JOIN campo c ON t.id_campo = c.id_campo
-    WHERE t.id_tropa = $id_tropa
-";
-$resultado_lote = ejecutarConsulta($query_lote);
+    WHERE t.id_tropa = ?
+");
+$stmt_lote->execute([$id_tropa]);
+$lote = $stmt_lote->fetch();
 
-if (mysqli_num_rows($resultado_lote) === 0) {
+if (!$lote) {
     header('Location: listar.php');
     exit();
 }
-
-$lote = mysqli_fetch_assoc($resultado_lote);
 
 // Obtener dieta vigente
 $dieta_vigente = obtenerDietaVigente($id_tropa);
@@ -49,31 +49,33 @@ $fecha_inicio = new DateTime($lote['fecha_inicio']);
 $fecha_hoy = new DateTime();
 $dias_engorde = $fecha_inicio->diff($fecha_hoy)->days;
 
-// Obtener pesadas del lote
-$query_pesadas = "
+// Obtener pesadas del lote (PDO)
+$stmt_pesadas = $db->prepare("
     SELECT fecha, peso_promedio, animales_vistos
     FROM pesada
-    WHERE id_tropa = $id_tropa
+    WHERE id_tropa = ?
     ORDER BY fecha DESC
     LIMIT 10
-";
-$pesadas = ejecutarConsulta($query_pesadas);
+");
+$stmt_pesadas->execute([$id_tropa]);
+$pesadas = $stmt_pesadas->fetchAll();
 
 // Calcular peso promedio inicial y actual
 $peso_inicial = null;
 $peso_actual = null;
 $adpv = null;
 
-$query_peso_inicial = "SELECT peso_promedio FROM pesada WHERE id_tropa = $id_tropa ORDER BY fecha ASC LIMIT 1";
-$resultado_peso_inicial = ejecutarConsulta($query_peso_inicial);
-if (mysqli_num_rows($resultado_peso_inicial) > 0) {
-    $peso_inicial = mysqli_fetch_assoc($resultado_peso_inicial)['peso_promedio'];
+$stmt_peso_inicial = $db->prepare("SELECT peso_promedio FROM pesada WHERE id_tropa = ? ORDER BY fecha ASC LIMIT 1");
+$stmt_peso_inicial->execute([$id_tropa]);
+$dato_peso_inicial = $stmt_peso_inicial->fetch();
+if ($dato_peso_inicial) {
+    $peso_inicial = $dato_peso_inicial['peso_promedio'];
 }
 
-$query_peso_actual = "SELECT peso_promedio, fecha FROM pesada WHERE id_tropa = $id_tropa ORDER BY fecha DESC LIMIT 1";
-$resultado_peso_actual = ejecutarConsulta($query_peso_actual);
-if (mysqli_num_rows($resultado_peso_actual) > 0) {
-    $dato_peso_actual = mysqli_fetch_assoc($resultado_peso_actual);
+$stmt_peso_actual = $db->prepare("SELECT peso_promedio, fecha FROM pesada WHERE id_tropa = ? ORDER BY fecha DESC LIMIT 1");
+$stmt_peso_actual->execute([$id_tropa]);
+$dato_peso_actual = $stmt_peso_actual->fetch();
+if ($dato_peso_actual) {
     $peso_actual = $dato_peso_actual['peso_promedio'];
     
     // Calcular ADPV si hay peso inicial y actual
@@ -82,8 +84,8 @@ if (mysqli_num_rows($resultado_peso_actual) > 0) {
     }
 }
 
-// Obtener últimas alimentaciones
-$query_alimentaciones = "
+// Obtener últimas alimentaciones (PDO)
+$stmt_alimentaciones = $db->prepare("
     SELECT 
         cl.fecha,
         cl.hora,
@@ -91,35 +93,37 @@ $query_alimentaciones = "
         cl.sobrante_nivel,
         cl.animales_presentes
     FROM consumo_lote cl
-    WHERE cl.id_tropa = $id_tropa
+    WHERE cl.id_tropa = ?
     ORDER BY cl.fecha DESC, cl.hora DESC
     LIMIT 10
-";
-$alimentaciones = ejecutarConsulta($query_alimentaciones);
+");
+$stmt_alimentaciones->execute([$id_tropa]);
+$alimentaciones = $stmt_alimentaciones->fetchAll();
 
-// Obtener movimientos de animales
-$query_movimientos = "
+// Obtener movimientos de animales (PDO)
+$stmt_movimientos = $db->prepare("
     SELECT 
         fecha,
         tipo_movimiento,
         cantidad,
         motivo
     FROM movimiento_animal
-    WHERE id_tropa = $id_tropa
+    WHERE id_tropa = ?
     ORDER BY fecha DESC
     LIMIT 10
-";
-$movimientos = ejecutarConsulta($query_movimientos);
+");
+$stmt_movimientos->execute([$id_tropa]);
+$movimientos = $stmt_movimientos->fetchAll();
 
-// Calcular consumo total de MS
-$query_ms_total = "
+// Calcular consumo total de MS (PDO)
+$stmt_ms_total = $db->prepare("
     SELECT IFNULL(SUM(kg_ms), 0) as total_kg_ms
     FROM consumo_lote_detalle cld
     INNER JOIN consumo_lote cl ON cld.id_consumo = cl.id_consumo
-    WHERE cl.id_tropa = $id_tropa
-";
-$resultado_ms = ejecutarConsulta($query_ms_total);
-$total_kg_ms = mysqli_fetch_assoc($resultado_ms)['total_kg_ms'];
+    WHERE cl.id_tropa = ?
+");
+$stmt_ms_total->execute([$id_tropa]);
+$total_kg_ms = $stmt_ms_total->fetch()['total_kg_ms'];
 
 // Calcular CMS promedio
 $cms_promedio = null;
@@ -130,273 +134,241 @@ if ($dias_engorde > 0 && $animales_presentes > 0) {
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">🐮 Detalle del Lote</h1>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: var(--surface); padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
+    <div>
+        <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px; display: flex; align-items: center; gap: 0.75rem;">
+            <span>🐮</span> <?php echo htmlspecialchars($lote['nombre']); ?>
+        </h1>
+        <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.95rem; font-weight: 500;">
+            <?php echo htmlspecialchars($lote['campo_nombre']); ?> | <?php echo htmlspecialchars($lote['categoria']); ?>
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="editar.php?id=<?php echo $id_tropa; ?>" class="btn btn-secondary">✏️ Editar</a>
+        <a href="listar.php" class="btn btn-secondary"><span>←</span> Volver</a>
+    </div>
+</div>
 
-<!-- Información general del lote -->
-<div class="tarjeta">
-    <h2 style="color: #2c5530; margin-bottom: 1rem;">
-        <?php echo htmlspecialchars($lote['nombre']); ?>
+<div class="card" style="border-top: 5px solid var(--primary);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+        <div>
+            <h3 class="card-title" style="margin-bottom: 0.25rem;"><span>📍</span> Ubicación y Estado</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem;"><?php echo !empty($lote['campo_ubicacion']) ? htmlspecialchars($lote['campo_ubicacion']) : 'Ubicación no especificada'; ?></p>
+        </div>
         <?php if ($lote['activo']): ?>
-            <span class="estado estado-activo" style="font-size: 0.9rem; margin-left: 1rem;">Activo</span>
+            <span class="badge" style="background: #dcfce7; color: #166534; font-size: 0.9rem; padding: 0.6rem 1.25rem; border: 1px solid #bbf7d0;">ACTIVO</span>
         <?php else: ?>
-            <span class="estado estado-inactivo" style="font-size: 0.9rem; margin-left: 1rem;">Inactivo</span>
+            <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 0.9rem; padding: 0.6rem 1.25rem; border: 1px solid #e2e8f0;">CERRADO</span>
         <?php endif; ?>
-    </h2>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-        
-        <div>
-            <small style="color: #666;">Campo:</small><br>
-            <strong><?php echo htmlspecialchars($lote['campo_nombre']); ?></strong>
-            <?php if (!empty($lote['campo_ubicacion'])): ?>
-                <br><small style="color: #999;"><?php echo htmlspecialchars($lote['campo_ubicacion']); ?></small>
-            <?php endif; ?>
-        </div>
-        
-        <div>
-            <small style="color: #666;">Categoría:</small><br>
-            <strong><?php echo htmlspecialchars($lote['categoria']); ?></strong>
-        </div>
-        
-        <div>
-            <small style="color: #666;">Fecha de Inicio:</small><br>
-            <strong><?php echo formatearFecha($lote['fecha_inicio']); ?></strong>
-            <br><small style="color: #999;"><?php echo $dias_engorde; ?> días en feedlot</small>
-        </div>
-        
     </div>
     
-    <div class="btn-grupo">
-        <a href="editar.php?id=<?php echo $id_tropa; ?>" class="btn btn-primario">✏️ Editar Lote</a>
-        <a href="../alimentaciones/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-secundario">🍽️ Registrar Alimentación</a>
-        <a href="../pesadas/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-secundario">⚖️ Registrar Pesada</a>
-        <a href="listar.php" class="btn btn-secundario">← Volver</a>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+        <div style="background: var(--bg-main); padding: 1.25rem; border-radius: var(--radius);">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Fecha Inicio</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);"><?php echo date('d/m/Y', strtotime($lote['fecha_inicio'])); ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;"><?php echo $dias_engorde; ?> días en feedlot</div>
+        </div>
+        
+        <div style="background: var(--bg-main); padding: 1.25rem; border-radius: var(--radius);">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Animales</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);"><?php echo $animales_presentes; ?> cabezas</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Stock actual</div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+        <a href="../alimentaciones/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-primary" style="flex: 1;"><span>🍽️</span> Cargar Dieta Diaria</a>
+        <a href="../pesadas/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-secondary" style="flex: 1;"><span>⚖️</span> Registrar Pesada</a>
     </div>
 </div>
 
 <!-- Indicadores clave -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
     
-    <div class="indicador">
-        <div class="indicador-icono">🐄</div>
-        <div class="indicador-valor"><?php echo $animales_presentes; ?></div>
-        <div class="indicador-label">Animales Presentes</div>
-        <?php if ($animales_presentes != $lote['cantidad_inicial']): ?>
-            <small style="color: #999;">Inicial: <?php echo $lote['cantidad_inicial']; ?></small>
-        <?php endif; ?>
+    <div class="card" style="text-align: center; margin-bottom: 0; padding: 1.25rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">⚖️</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);"><?php echo formatearNumero($peso_actual ?: $peso_inicial, 1); ?> kg</div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Peso Promedio</div>
     </div>
-    
-    <?php if ($peso_inicial): ?>
-    <div class="indicador">
-        <div class="indicador-icono">⚖️</div>
-        <div class="indicador-valor"><?php echo formatearNumero($peso_inicial, 0); ?> kg</div>
-        <div class="indicador-label">Peso Inicial Promedio</div>
-    </div>
-    <?php endif; ?>
-    
-    <?php if ($peso_actual): ?>
-    <div class="indicador">
-        <div class="indicador-icono">📊</div>
-        <div class="indicador-valor"><?php echo formatearNumero($peso_actual, 0); ?> kg</div>
-        <div class="indicador-label">Peso Actual Promedio</div>
-    </div>
-    <?php endif; ?>
     
     <?php if ($adpv): ?>
-    <div class="indicador">
-        <div class="indicador-icono">📈</div>
-        <div class="indicador-valor"><?php echo formatearNumero($adpv, 2); ?></div>
-        <div class="indicador-label">ADPV (kg/día)</div>
+    <div class="card" style="text-align: center; margin-bottom: 0; padding: 1.25rem; background: var(--primary); color: white;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📈</div>
+        <div style="font-size: 1.25rem; font-weight: 800;"><?php echo formatearNumero($adpv, 2); ?> kg</div>
+        <div style="font-size: 0.7rem; font-weight: 700; opacity: 0.8; text-transform: uppercase;">ADPV (Garancia)</div>
     </div>
     <?php endif; ?>
     
     <?php if ($cms_promedio): ?>
-    <div class="indicador">
-        <div class="indicador-icono">🌾</div>
-        <div class="indicador-valor"><?php echo formatearNumero($cms_promedio, 2); ?></div>
-        <div class="indicador-label">CMS Promedio (kg MS/día)</div>
+    <div class="card" style="text-align: center; margin-bottom: 0; padding: 1.25rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🌾</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--secondary);"><?php echo formatearNumero($cms_promedio, 2); ?></div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">CMS (Eficiencia)</div>
     </div>
     <?php endif; ?>
-    
-    <div class="indicador">
-        <div class="indicador-icono">📅</div>
-        <div class="indicador-valor"><?php echo $dias_engorde; ?></div>
-        <div class="indicador-label">Días de Engorde</div>
+
+    <div class="card" style="text-align: center; margin-bottom: 0; padding: 1.25rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🐂</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);"><?php echo $animales_presentes; ?></div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Animales</div>
     </div>
-    
 </div>
 
 <!-- Dieta vigente -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📋 Dieta Vigente</h2>
+<div class="card">
+    <h3 class="card-title"><span>📋</span> Dieta Vigente</h3>
     
     <?php if ($dieta_vigente): ?>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
             <div>
-                <h3 style="color: #2c5530; margin-bottom: 0.5rem;">
+                <div style="font-size: 1.2rem; font-weight: 800; color: var(--primary); margin-bottom: 0.25rem;">
                     <?php echo htmlspecialchars($dieta_vigente['dieta_nombre']); ?>
-                </h3>
-                <small style="color: #666;">
-                    Asignada desde: <?php echo formatearFecha($dieta_vigente['fecha_desde']); ?>
-                </small>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                    Asignada el: <?php echo date('d/m/Y', strtotime($dieta_vigente['fecha_desde'])); ?>
+                </div>
             </div>
-            <a href="../dietas/ver.php?id=<?php echo $dieta_vigente['id_dieta']; ?>" 
-               class="btn btn-secundario btn-pequeno">Ver Composición</a>
+            <a href="../dietas/ver.php?id=<?php echo $dieta_vigente['id_dieta']; ?>" class="btn btn-secondary">Composición Detallada</a>
         </div>
-        
     <?php else: ?>
-        
-        <div class="sin-datos">
-            <p>Este lote no tiene dieta asignada actualmente.</p>
-            <a href="editar.php?id=<?php echo $id_tropa; ?>" class="btn btn-primario">Asignar Dieta</a>
+        <div style="text-align: center; padding: 2rem; border: 1px dashed var(--border); border-radius: var(--radius);">
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Este lote no tiene dieta asignada actualmente.</p>
+            <a href="editar.php?id=<?php echo $id_tropa; ?>" class="btn btn-primary">Asignar Dieta Ahora</a>
         </div>
-        
     <?php endif; ?>
 </div>
 
 <!-- Últimas Pesadas -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">⚖️ Últimas Pesadas</h2>
+<div class="card">
+    <h3 class="card-title"><span>⚖️</span> Últimas Pesadas</h3>
     
-    <?php if (mysqli_num_rows($pesadas) > 0): ?>
-        
-        <div class="tabla-responsive">
+    <?php if (count($pesadas) > 0): ?>
+        <div class="table-container">
             <table>
                 <thead>
                     <tr>
                         <th>Fecha</th>
-                        <th>Peso Promedio</th>
-                        <th>Animales Vistos</th>
+                        <th style="text-align: center;">Peso Promedio</th>
+                        <th style="text-align: center;">Animales Vistos</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while ($pesada = mysqli_fetch_assoc($pesadas)): ?>
+                    <?php foreach ($pesadas as $pesada): ?>
                         <tr>
-                            <td><?php echo formatearFecha($pesada['fecha']); ?></td>
-                            <td><strong><?php echo formatearNumero($pesada['peso_promedio'], 2); ?> kg</strong></td>
-                            <td><?php echo $pesada['animales_vistos']; ?></td>
+                            <td style="font-weight: 500;"><?php echo date('d/m/Y', strtotime($pesada['fecha'])); ?></td>
+                            <td style="text-align: center;"><strong style="color: var(--primary); font-size: 1.1rem;"><?php echo number_format($pesada['peso_promedio'], 1); ?> kg</strong></td>
+                            <td style="text-align: center;"><?php echo $pesada['animales_vistos']; ?></td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-        
     <?php else: ?>
-        
-        <div class="sin-datos">
-            <p>No hay pesadas registradas para este lote todavía.</p>
-            <a href="../pesadas/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-primario">Registrar Primera Pesada</a>
+        <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic;">
+            No hay pesadas registradas para este lote todavía.
         </div>
-        
     <?php endif; ?>
 </div>
 
 <!-- Últimas Alimentaciones -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">🍽️ Últimas Alimentaciones</h2>
+<div class="card">
+    <h3 class="card-title"><span>🍽️</span> Últimas Alimentaciones</h3>
     
-    <?php if (mysqli_num_rows($alimentaciones) > 0): ?>
-        
-        <div class="tabla-responsive">
+    <?php if (count($alimentaciones) > 0): ?>
+        <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th>Fecha</th>
-                        <th>Hora</th>
-                        <th>Kg Totales</th>
-                        <th>Kg/Animal</th>
-                        <th>Animales</th>
-                        <th>Sobras</th>
+                        <th>Fecha y Hora</th>
+                        <th style="text-align: center;">Kg Tirados</th>
+                        <th style="text-align: center;">Kg/Animal</th>
+                        <th style="text-align: center;">Sobras</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while ($alim = mysqli_fetch_assoc($alimentaciones)): ?>
+                    <?php foreach ($alimentaciones as $alim): ?>
                         <?php 
                         $kg_por_animal = $alim['animales_presentes'] > 0 
                             ? $alim['kg_totales_tirados'] / $alim['animales_presentes'] 
                             : 0;
+                        
+                        $sobra_class = 'badge';
+                        $sobra_style = '';
+                        switch($alim['sobrante_nivel']) {
+                            case 'SIN_SOBRAS': $sobra_style = 'background: #dcfce7; color: #166534;'; break;
+                            case 'POCAS_SOBRAS': $sobra_style = 'background: #fef9c3; color: #854d0e;'; break;
+                            case 'NORMAL': $sobra_style = 'background: #e0f2fe; color: #075985;'; break;
+                            case 'MUCHAS_SOBRAS': $sobra_style = 'background: #fee2e2; color: #991b1b;'; break;
+                        }
                         ?>
                         <tr>
-                            <td><?php echo formatearFecha($alim['fecha']); ?></td>
-                            <td><?php echo date('H:i', strtotime($alim['hora'])); ?></td>
-                            <td><?php echo formatearNumero($alim['kg_totales_tirados'], 0); ?> kg</td>
-                            <td><strong><?php echo formatearNumero($kg_por_animal, 2); ?> kg</strong></td>
-                            <td><?php echo $alim['animales_presentes']; ?></td>
                             <td>
-                                <?php
-                                $color_sobra = '';
-                                switch($alim['sobrante_nivel']) {
-                                    case 'SIN_SOBRAS': $color_sobra = '#28a745'; break;
-                                    case 'POCAS_SOBRAS': $color_sobra = '#ffc107'; break;
-                                    case 'NORMAL': $color_sobra = '#17a2b8'; break;
-                                    case 'MUCHAS_SOBRAS': $color_sobra = '#dc3545'; break;
-                                }
-                                ?>
-                                <span style="color: <?php echo $color_sobra; ?>; font-weight: 600;">
+                                <div style="font-weight: 500;"><?php echo date('d/m', strtotime($alim['fecha'])); ?> - <?php echo date('H:i', strtotime($alim['hora'])); ?></div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $alim['animales_presentes']; ?> animales</div>
+                            </td>
+                            <td style="text-align: center;"><strong><?php echo number_format($alim['kg_totales_tirados'], 0); ?> kg</strong></td>
+                            <td style="text-align: center;"><strong style="color: var(--primary);"><?php echo number_format($kg_por_animal, 2); ?></strong></td>
+                            <td style="text-align: center;">
+                                <span class="badge" style="<?php echo $sobra_style; ?> font-size: 0.7rem;">
                                     <?php echo str_replace('_', ' ', $alim['sobrante_nivel']); ?>
                                 </span>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-        
     <?php else: ?>
-        
-        <div class="sin-datos">
-            <p>No hay alimentaciones registradas para este lote todavía.</p>
-            <a href="../alimentaciones/registrar.php?lote=<?php echo $id_tropa; ?>" class="btn btn-primario">Registrar Primera Alimentación</a>
+        <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic;">
+            No hay mediciones de alimentación registradas.
         </div>
-        
     <?php endif; ?>
 </div>
 
 <!-- Movimientos de Animales -->
-<?php if (mysqli_num_rows($movimientos) > 0): ?>
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📝 Historial de Movimientos</h2>
+<?php if (count($movimientos) > 0): ?>
+<div class="card">
+    <h3 class="card-title"><span>📝</span> Historial de Movimientos</h3>
     
-    <div class="tabla-responsive">
+    <div class="table-container">
         <table>
             <thead>
                 <tr>
                     <th>Fecha</th>
                     <th>Tipo</th>
-                    <th>Cantidad</th>
+                    <th style="text-align: center;">Cantidad</th>
                     <th>Motivo</th>
                 </tr>
             </thead>
             <tbody>
-                <?php while ($mov = mysqli_fetch_assoc($movimientos)): ?>
+                <?php foreach ($movimientos as $mov): ?>
+                    <?php
+                    $mov_style = '';
+                    switch($mov['tipo_movimiento']) {
+                        case 'ENTRADA':
+                        case 'AJUSTE_POSITIVO':
+                            $mov_style = 'background: #dcfce7; color: #166534;';
+                            break;
+                        case 'SALIDA':
+                        case 'BAJA':
+                        case 'AJUSTE_NEGATIVO':
+                            $mov_style = 'background: #fee2e2; color: #991b1b;';
+                            break;
+                        default:
+                            $mov_style = 'background: #e0f2fe; color: #075985;';
+                    }
+                    ?>
                     <tr>
-                        <td><?php echo formatearFecha($mov['fecha']); ?></td>
+                        <td><?php echo date('d/m/Y', strtotime($mov['fecha'])); ?></td>
                         <td>
-                            <?php
-                            $color_mov = '';
-                            switch($mov['tipo_movimiento']) {
-                                case 'ENTRADA':
-                                case 'AJUSTE_POSITIVO':
-                                    $color_mov = '#28a745';
-                                    break;
-                                case 'SALIDA':
-                                case 'BAJA':
-                                case 'AJUSTE_NEGATIVO':
-                                    $color_mov = '#dc3545';
-                                    break;
-                                default:
-                                    $color_mov = '#17a2b8';
-                            }
-                            ?>
-                            <span style="color: <?php echo $color_mov; ?>; font-weight: 600;">
+                            <span class="badge" style="<?php echo $mov_style; ?> font-size: 0.7rem;">
                                 <?php echo str_replace('_', ' ', $mov['tipo_movimiento']); ?>
                             </span>
                         </td>
-                        <td><strong><?php echo $mov['cantidad']; ?></strong></td>
-                        <td><?php echo htmlspecialchars($mov['motivo']); ?></td>
+                        <td style="text-align: center;"><strong><?php echo $mov['cantidad']; ?></strong></td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);"><?php echo htmlspecialchars($mov['motivo']); ?></td>
                     </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>

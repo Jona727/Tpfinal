@@ -7,10 +7,9 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión
+// Verificar permisos de administrador
+verificarAdmin();
 
 // Obtener lotes activos para el filtro
 $query_lotes = "
@@ -56,11 +55,11 @@ if ($lote_filtro > 0) {
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">📈 Reportes de Consumo y Métricas</h1>
+<h1 style="font-weight: 800; color: var(--primary); margin-bottom: 2rem;">📈 Reportes de Consumo</h1>
 
 <!-- Filtros -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">🔍 Filtros</h2>
+<div class="card">
+    <h3 class="card-title"><span>🔍</span> Filtros</h3>
     
     <form method="GET" class="formulario">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
@@ -105,10 +104,10 @@ include '../../includes/header.php';
 <?php if ($lote_seleccionado): ?>
 
 <!-- Información del lote -->
-<div class="tarjeta" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-    <h2 style="color: #2c5530; margin-bottom: 1rem;">
-        🐮 <?php echo htmlspecialchars($lote_seleccionado['nombre']); ?>
-    </h2>
+<div class="card" style="background: linear-gradient(135deg, var(--bg-main) 0%, #e2e8f0 100%); border: none;">
+    <h3 style="color: var(--primary); margin-bottom: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">
+        <span>🐮</span> <?php echo htmlspecialchars($lote_seleccionado['nombre']); ?>
+    </h3>
     
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
         <div>
@@ -283,52 +282,55 @@ if ($total_kg_ms > 0 && $dias_con_alimentacion > 0 && $animales_presentes > 0) {
 </div>
 
 <!-- Explicación de Indicadores -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📖 Glosario de Indicadores</h2>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-        
-        <div>
-            <strong style="color: #2c5530;">ADPV (Aumento Diario de Peso Vivo)</strong>
-            <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
-                Kg que aumenta cada animal por día. Indica la velocidad de engorde.
-                <br><strong>Fórmula:</strong> (Peso Final - Peso Inicial) / Días
-            </p>
+<details class="accordion">
+    <summary>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span>📖</span> Glosario de Indicadores y Fórmulas
         </div>
-        
-        <div>
-            <strong style="color: #2c5530;">CMS (Consumo de Materia Seca)</strong>
-            <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
-                Kg de materia seca que consume cada animal por día.
-                <br><strong>Fórmula:</strong> Total MS / (Días × Animales)
-            </p>
+    </summary>
+    <div class="accordion-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div>
+                <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">ADPV (Aumento Diario de Peso Vivo)</strong>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">
+                    Kg que aumenta cada animal por día. Indica la velocidad de engorde.
+                    <br><small style="font-weight: 700; color: var(--text-main);">Fórmula:</small> <code style="background: var(--bg-main); padding: 2px 4px; border-radius: 4px;">(Peso Final - Peso Inicial) / Días</code>
+                </p>
+            </div>
+            
+            <div>
+                <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">CMS (Consumo de Materia Seca)</strong>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">
+                    Kg de materia seca que consume cada animal por día.
+                    <br><small style="font-weight: 700; color: var(--text-main);">Fórmula:</small> <code style="background: var(--bg-main); padding: 2px 4px; border-radius: 4px;">Total MS / (Días × Animales)</code>
+                </p>
+            </div>
+            
+            <div>
+                <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">CMS % PV (CMS como % del Peso Vivo)</strong>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">
+                    Consumo de MS expresado como porcentaje del peso del animal.
+                    <br><small style="font-weight: 700; color: var(--text-main);">Fórmula:</small> <code style="background: var(--bg-main); padding: 2px 4px; border-radius: 4px;">(CMS / Peso Medio) × 100</code>
+                </p>
+            </div>
+            
+            <div>
+                <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">EC (Eficiencia de Conversión)</strong>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">
+                    Kg de MS necesarios para producir 1 kg de carne. Menor es mejor.
+                    <br><small style="font-weight: 700; color: var(--text-main);">Fórmula:</small> <code style="background: var(--bg-main); padding: 2px 4px; border-radius: 4px;">Total MS / Kg Producidos</code>
+                </p>
+            </div>
         </div>
-        
-        <div>
-            <strong style="color: #2c5530;">CMS % PV (CMS como % del Peso Vivo)</strong>
-            <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
-                Consumo de MS expresado como porcentaje del peso del animal.
-                <br><strong>Fórmula:</strong> (CMS / Peso Medio) × 100
-            </p>
-        </div>
-        
-        <div>
-            <strong style="color: #2c5530;">EC (Eficiencia de Conversión)</strong>
-            <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
-                Kg de MS necesarios para producir 1 kg de carne. Menor es mejor.
-                <br><strong>Fórmula:</strong> Total MS / Kg Producidos
-            </p>
-        </div>
-        
     </div>
-</div>
+</details>
 
 <!-- Evolución de Peso -->
 <?php if (count($pesadas_array) > 0): ?>
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📊 Evolución de Peso</h2>
+<div class="card">
+    <h3 class="card-title"><span>📊</span> Evolución de Peso</h3>
     
-    <div class="tabla-responsive">
+    <div class="table-container">
         <table>
             <thead>
                 <tr>
@@ -411,10 +413,10 @@ $alimentaciones = ejecutarConsulta($query_alimentaciones);
 ?>
 
 <?php if (mysqli_num_rows($alimentaciones) > 0): ?>
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">🍽️ Detalle de Alimentaciones</h2>
+<div class="card">
+    <h3 class="card-title"><span>🍽️</span> Detalle de Alimentaciones</h3>
     
-    <div class="tabla-responsive">
+    <div class="table-container">
         <table>
             <thead>
                 <tr>

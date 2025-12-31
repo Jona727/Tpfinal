@@ -7,10 +7,8 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión y rol de campo
+verificarCampo();
 
 // Verificar si viene un lote pre-seleccionado
 $lote_preseleccionado = isset($_GET['lote']) ? (int) $_GET['lote'] : null;
@@ -162,18 +160,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pesada'])) {
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">⚖️ Registrar Pesada</h1>
+<h1 style="font-weight: 800; color: var(--primary); margin-bottom: 2rem;">⚖️ Registrar Pesada</h1>
 
-<div class="tarjeta">
+<!-- Indicador de estado para PWA -->
+<div id="connection-status" style="display:none; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;"></div>
+
+<div class="card">
     
     <?php if (isset($exito)): ?>
-        <div class="mensaje mensaje-exito"><?php echo $exito; ?></div>
+        <div class="card" style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1rem; margin-bottom: 1.5rem;">
+            <?php echo $exito; ?>
+        </div>
     <?php endif; ?>
     
     <?php if (!empty($errores)): ?>
-        <div class="mensaje mensaje-error">
-            <strong>Se encontraron los siguientes errores:</strong>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
+        <div class="card" style="background: #fee2e2; border-left: 5px solid var(--danger); color: #991b1b; padding: 1rem; margin-bottom: 1.5rem;">
+            <strong style="display: block; margin-bottom: 0.5rem;">Se encontraron errores:</strong>
+            <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">
                 <?php foreach ($errores as $error): ?>
                     <li><?php echo $error; ?></li>
                 <?php endforeach; ?>
@@ -184,7 +187,7 @@ include '../../includes/header.php';
     <form method="POST" class="formulario" id="formPesada">
         
         <!-- PASO 1: Seleccionar Lote -->
-        <h3 style="color: #2c5530; margin-bottom: 1rem;">📍 Paso 1: Seleccionar Lote</h3>
+        <h3 class="card-title"><span>📍</span> Paso 1: Seleccionar Lote</h3>
         
         <div class="form-grupo">
             <label for="id_tropa">Lote a Pesar *</label>
@@ -202,39 +205,50 @@ include '../../includes/header.php';
         <?php if ($lote_seleccionado): ?>
             
             <!-- Información del lote seleccionado -->
-            <div style="background: #e3f2fd; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
-                <strong>📊 Lote seleccionado:</strong> <?php echo htmlspecialchars($lote_seleccionado['nombre']); ?>
-                <br>
-                <strong>🐄 Animales esperados:</strong> <?php echo $animales_esperados; ?>
-                <br>
-                <strong>📅 Fecha de inicio:</strong> <?php echo formatearFecha($lote_seleccionado['fecha_inicio']); ?>
-                <?php
-                $fecha_inicio = new DateTime($lote_seleccionado['fecha_inicio']);
-                $fecha_hoy = new DateTime();
-                $dias_total = $fecha_inicio->diff($fecha_hoy)->days;
-                ?>
-                (<?php echo $dias_total; ?> días en feedlot)
+            <div class="card" style="background: var(--bg-main); border: 1px solid var(--border); margin-bottom: 2rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Lote</small>
+                        <strong style="color: var(--primary);"><?php echo htmlspecialchars($lote_seleccionado['nombre']); ?></strong>
+                    </div>
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Animales</small>
+                        <strong><?php echo $animales_esperados; ?> cab</strong>
+                    </div>
+                    <div>
+                        <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; font-size: 0.7rem;">Días en Feedlot</small>
+                        <?php
+                        $fecha_inicio = new DateTime($lote_seleccionado['fecha_inicio']);
+                        $fecha_hoy = new DateTime();
+                        $dias_total = $fecha_inicio->diff($fecha_hoy)->days;
+                        ?>
+                        <strong><?php echo $dias_total; ?> días</strong>
+                    </div>
+                </div>
             </div>
             
             <!-- Historial de pesadas -->
             <?php if ($peso_anterior): ?>
-                <div style="background: #fff3cd; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
-                    <strong>📈 Última pesada:</strong><br>
-                    <strong>Peso:</strong> <?php echo formatearNumero($peso_anterior, 2); ?> kg/animal
-                    | <strong>Fecha:</strong> <?php echo formatearFecha($fecha_anterior); ?>
-                    | <strong>Hace:</strong> <?php echo $dias_desde_ultima; ?> días
+                <div class="card" style="background: #eef2ff; border: 1px solid var(--secondary); margin-bottom: 2rem; display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 1.5rem;">📈</div>
+                    <div>
+                        <strong style="color: var(--secondary); display: block; font-size: 0.8rem; text-transform: uppercase;">Última pesada: <?php echo formatearFecha($fecha_anterior); ?></strong>
+                        <span style="font-size: 1.1rem; font-weight: 700; color: var(--secondary);"><?php echo formatearNumero($peso_anterior, 1); ?> kg</span>
+                        <small style="color: var(--text-muted); margin-left: 5px;">(Hace <?php echo $dias_desde_ultima; ?> días)</small>
+                    </div>
                 </div>
             <?php else: ?>
-                <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-                    ℹ️ Esta será la <strong>primera pesada</strong> de este lote. 
-                    Servirá como peso inicial de referencia para calcular ADPV.
+                <div class="card" style="background: #f1f5f9; border: none; margin-bottom: 2rem;">
+                    <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: 500;">
+                        ℹ️ Esta será la <strong>primera pesada</strong> registrada. Servirá como peso inicial.
+                    </div>
                 </div>
             <?php endif; ?>
             
             <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
             
             <!-- PASO 2: Datos de la Pesada -->
-            <h3 style="color: #2c5530; margin-bottom: 1rem;">📝 Paso 2: Datos de la Pesada</h3>
+            <h3 class="card-title"><span>📝</span> Paso 2: Datos de la Pesada</h3>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                 
@@ -251,8 +265,8 @@ include '../../includes/header.php';
                 </div>
                 
                 <!-- Peso promedio -->
-                <div class="form-grupo">
-                    <label for="peso_promedio">Peso Promedio (kg/animal) *</label>
+                <div class="form-group">
+                    <label for="peso_promedio">Peso Promedio (kg) *</label>
                     <input 
                         type="number" 
                         id="peso_promedio" 
@@ -260,31 +274,28 @@ include '../../includes/header.php';
                         step="0.01" 
                         min="0"
                         required 
-                        placeholder="Ej: 410.50"
-                        style="font-size: 1.2rem; font-weight: bold;"
+                        inputmode="decimal"
+                        placeholder="Ej: 410.5"
+                        style="font-size: 1.5rem; font-weight: 900; color: var(--primary); padding: 1rem;"
                     >
-                    <small>Peso promedio del lote o de los animales pesados.</small>
+                    <small style="color: var(--text-muted);">Ingresá el peso promedio del lote.</small>
                 </div>
                 
             </div>
             
             <!-- Cálculo de ADPV automático -->
             <?php if ($peso_anterior && $dias_desde_ultima > 0): ?>
-                <div id="calculo-adpv" style="background: #d4edda; padding: 1rem; border-radius: 6px; margin-top: 1rem; display: none;">
-                    <strong>📊 ADPV Calculado Automáticamente:</strong><br>
-                    <div style="font-size: 1.5rem; color: #155724; margin-top: 0.5rem;">
-                        <strong id="valor-adpv">0.00</strong> kg/día
-                    </div>
-                    <small style="color: #155724;">
-                        (Aumento desde la última pesada en <?php echo $dias_desde_ultima; ?> días)
-                    </small>
+                <div id="calculo-adpv" class="card" style="background: var(--bg-main); border: 2px dashed var(--border); margin-top: 1rem; text-align: center; display: none;">
+                    <small style="color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">Aumento diario (ADPV)</small>
+                    <div style="font-size: 2.5rem; font-weight: 900; margin: 0.5rem 0;" id="valor-adpv">0.00</div>
+                    <small style="color: var(--text-muted);">kg ganados por día</small>
                 </div>
             <?php endif; ?>
             
             <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
             
             <!-- PASO 3: Verificación de Animales -->
-            <h3 style="color: #2c5530; margin-bottom: 1rem;">🔍 Paso 3: Verificación de Animales</h3>
+            <h3 class="card-title"><span>🔍</span> Paso 3: Contador de Animales</h3>
             
             <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
                 ℹ️ Verificá si la cantidad de animales que viste coincide con la cantidad esperada.
@@ -324,29 +335,31 @@ include '../../includes/header.php';
             </div>
             
             <!-- Diferencia detectada -->
-            <div id="diferencia-container" style="display: none; margin-top: 1rem; padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px;">
-                <strong>⚠️ Diferencia Detectada:</strong>
-                <div style="font-size: 1.3rem; margin: 0.5rem 0;">
-                    <span id="texto-diferencia"></span>
+            <div id="diferencia-container" class="card" style="display: none; background: #fff3cd; border: 2px solid var(--warning);">
+                <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 1rem;">
+                    <div style="font-size: 2rem;">⚠️</div>
+                    <div>
+                        <strong style="color: #856404; display: block;">¡Diferencia detectada!</strong>
+                        <span id="texto-diferencia" style="font-weight: 700; color: #856404;"></span>
+                    </div>
                 </div>
                 
-                <div class="form-grupo" style="margin-top: 1rem;">
-                    <label for="motivo_operario">Motivo de la Diferencia (opcional)</label>
+                <div class="form-group">
+                    <label for="motivo_operario">¿Qué pasó? (Opcional)</label>
                     <textarea 
                         id="motivo_operario" 
                         name="motivo_operario" 
                         rows="3"
-                        placeholder="Ej: Se encontró un animal muerto, Se escaparon 2 animales, etc."
+                        placeholder="Ej: Se murió uno, se escaparon, error de conteo anterior, etc."
                     ></textarea>
-                    <small>Este ajuste quedará pendiente de validación por el administrador.</small>
                 </div>
             </div>
             
             <!-- Botones -->
-            <div class="btn-grupo">
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                 <input type="hidden" name="guardar_pesada" value="1">
-                <button type="submit" class="btn btn-primario">💾 Guardar Pesada</button>
-                <a href="../lotes/ver.php?id=<?php echo $id_lote_actual; ?>" class="btn btn-secundario">❌ Cancelar</a>
+                <button type="submit" class="btn btn-primary" style="flex: 2; padding: 1.25rem;">💾 Guardar Pesada</button>
+                <a href="../campo/index.php" class="btn btn-secondary" style="flex: 1; padding: 1.25rem;">❌ Cancelar</a>
             </div>
             
         <?php endif; ?>
@@ -426,3 +439,31 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../../includes/footer.php'; ?>
+<script src="/solufeed/assets/js/offline_manager.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        if (!navigator.onLine) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Bandera para el servidor
+            data['guardar_pesada'] = '1';
+            
+            OfflineManager.saveToQueue(window.location.href, data, 'pesada');
+            
+            setTimeout(() => {
+                window.location.href = '../campo/index.php';
+            }, 3000);
+        }
+    });
+});
+</script>

@@ -6,10 +6,9 @@
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
 
-// Simular sesión
-$_SESSION['usuario_id'] = 1;
-$_SESSION['nombre'] = 'Administrador';
-$_SESSION['tipo'] = 'ADMIN';
+// Verificar sesión
+// Verificar permisos de administrador
+verificarAdmin();
 
 // Verificar que se recibió el ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -151,18 +150,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 ?>
 
-<h1 class="tarjeta-titulo">✏️ Editar Dieta</h1>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">✏️ Editar Dieta</h1>
+    <a href="ver.php?id=<?php echo $id_dieta; ?>" class="btn btn-secondary"><span>←</span> Cancelar</a>
+</div>
 
-<div class="tarjeta">
+<div class="card">
     
     <?php if (isset($exito)): ?>
-        <div class="mensaje mensaje-exito"><?php echo $exito; ?></div>
+        <div class="card" style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1rem; margin-bottom: 1.5rem;">
+            <?php echo $exito; ?>
+        </div>
     <?php endif; ?>
     
     <?php if (!empty($errores)): ?>
-        <div class="mensaje mensaje-error">
-            <strong>Se encontraron los siguientes errores:</strong>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
+        <div class="card" style="background: #fee2e2; border-left: 5px solid var(--danger); color: #991b1b; padding: 1rem; margin-bottom: 1.5rem;">
+            <strong style="display: block; margin-bottom: 0.5rem;">Se encontraron los siguientes errores:</strong>
+            <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">
                 <?php foreach ($errores as $error): ?>
                     <li><?php echo $error; ?></li>
                 <?php endforeach; ?>
@@ -170,100 +174,90 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
     
-    <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-        ℹ️ <strong>Atención:</strong> Si esta dieta está asignada a lotes activos, los cambios afectarán 
-        los cálculos de las nuevas alimentaciones registradas a partir de ahora.
+    <div style="background: var(--bg-main); padding: 1.25rem; border-radius: var(--radius); border-left: 4px solid var(--accent); margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem; color: var(--text-main); font-weight: 500;">
+            ⚠️ <strong>Atención:</strong> Si esta dieta está asignada a lotes activos, los cambios afectarán 
+            los cálculos de las nuevas alimentaciones registradas a partir de ahora.
+        </p>
     </div>
     
     <form method="POST" class="formulario" id="formDieta">
         
-        <!-- Nombre de la dieta -->
-        <div class="form-grupo">
-            <label for="nombre">Nombre de la Dieta *</label>
-            <input 
-                type="text" 
-                id="nombre" 
-                name="nombre" 
-                required 
-                placeholder="Ej: Engorde Intensivo, Crecimiento, Recría..."
-                value="<?php echo htmlspecialchars($dieta['nombre']); ?>"
-            >
-            <small>El nombre debe ser descriptivo y único.</small>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <!-- Nombre de la dieta -->
+            <div class="form-grupo">
+                <label for="nombre" style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.5rem;">Nombre de la Dieta *</label>
+                <input 
+                    type="text" 
+                    id="nombre" 
+                    name="nombre" 
+                    required 
+                    placeholder="Ej: Engorde Intensivo, Crecimiento, Recría..."
+                    value="<?php echo htmlspecialchars($dieta['nombre']); ?>"
+                    style="width: 100%;"
+                >
+            </div>
+            
+            <!-- Estado activo -->
+            <div class="form-grupo" style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem;">
+                <input 
+                    type="checkbox" 
+                    id="activo"
+                    name="activo" 
+                    value="1" 
+                    style="width: 20px; height: 20px; cursor: pointer;"
+                    <?php echo $dieta['activo'] ? 'checked' : ''; ?>
+                >
+                <label for="activo" style="font-weight: 700; color: var(--text-main); cursor: pointer;">Dieta activa</label>
+            </div>
         </div>
         
         <!-- Descripción -->
-        <div class="form-grupo">
-            <label for="descripcion">Descripción (opcional)</label>
+        <div class="form-grupo" style="margin-top: 1.5rem;">
+            <label for="descripcion" style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.5rem;">Descripción (opcional)</label>
             <textarea 
                 id="descripcion" 
                 name="descripcion" 
                 placeholder="Ej: Dieta alta en energía para terminación de novillos pesados"
+                style="width: 100%; min-height: 80px;"
             ><?php echo htmlspecialchars($dieta['descripcion']); ?></textarea>
-            <small>Describí el objetivo o características de esta dieta.</small>
         </div>
         
-        <!-- Estado activo -->
-        <div class="form-grupo">
-            <label>
-                <input 
-                    type="checkbox" 
-                    name="activo" 
-                    value="1" 
-                    <?php echo $dieta['activo'] ? 'checked' : ''; ?>
-                >
-                Dieta activa
-            </label>
-            <small>Las dietas inactivas no se pueden asignar a lotes nuevos.</small>
-        </div>
-        
-        <!-- Información adicional -->
-        <div class="form-grupo">
-            <small style="color: #666;">
-                <strong>Creado:</strong> <?php echo formatearFecha($dieta['fecha_creacion']); ?>
+        <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+            <small style="color: var(--text-muted); font-weight: 500;">
+                📅 Creada: <?php echo date('d/m/Y', strtotime($dieta['fecha_creacion'])); ?>
                 <?php if ($dieta['fecha_actualizacion']): ?>
-                    | <strong>Última actualización:</strong> <?php echo formatearFecha($dieta['fecha_actualizacion']); ?>
+                    | 🔄 Actualizada: <?php echo date('d/m/Y', strtotime($dieta['fecha_actualizacion'])); ?>
                 <?php endif; ?>
             </small>
         </div>
         
-        <hr style="margin: 2rem 0; border: none; border-top: 2px solid #e9ecef;">
+        <div style="margin: 2.5rem 0; height: 1px; background: var(--border);"></div>
         
-        <!-- Selección de insumos -->
-        <h3 style="color: #2c5530; margin-bottom: 1rem;">🌾 Composición de la Dieta</h3>
-        
-        <div class="mensaje mensaje-info" style="margin-bottom: 1.5rem;">
-            ℹ️ Seleccioná los insumos y definí el porcentaje teórico de cada uno. 
-            <strong>Los porcentajes deben sumar exactamente 100%.</strong>
-        </div>
+        <h3 style="font-weight: 800; color: var(--primary); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+            <span>🌾</span> Composición de la Dieta
+        </h3>
         
         <?php if (mysqli_num_rows($insumos_disponibles) > 0): ?>
             
-            <div id="insumosContainer">
-                <?php 
-                $insumos_array = [];
-                mysqli_data_seek($insumos_disponibles, 0); // Resetear el puntero
-                while ($insumo = mysqli_fetch_assoc($insumos_disponibles)) {
-                    $insumos_array[] = $insumo;
-                }
-                ?>
-                
+            <div class="table-container">
                 <table style="width: 100%;">
                     <thead>
-                        <tr style="background: #f8f9fa;">
-                            <th style="width: 50px; text-align: center;">Usar</th>
+                        <tr>
+                            <th style="width: 60px; text-align: center;">Usar</th>
                             <th>Insumo</th>
                             <th>Tipo</th>
                             <th style="width: 100px;">% MS</th>
-                            <th style="width: 150px;">% en la Dieta</th>
+                            <th style="width: 180px; text-align: center;">% en la Dieta</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($insumos_array as $insumo): ?>
-                            <?php 
-                            // Verificar si este insumo está en la dieta actual
+                        <?php 
+                        mysqli_data_seek($insumos_disponibles, 0);
+                        while ($insumo = mysqli_fetch_assoc($insumos_disponibles)): 
                             $esta_seleccionado = isset($insumos_actuales[$insumo['id_insumo']]);
                             $valor_porcentaje = $esta_seleccionado ? $insumos_actuales[$insumo['id_insumo']] : '';
-                            ?>
+                        ?>
                             <tr>
                                 <td style="text-align: center;">
                                     <input 
@@ -272,63 +266,68 @@ include '../../includes/header.php';
                                         value="<?php echo $insumo['id_insumo']; ?>"
                                         class="insumo-checkbox"
                                         data-insumo-id="<?php echo $insumo['id_insumo']; ?>"
+                                        style="width: 20px; height: 20px;"
                                         <?php echo $esta_seleccionado ? 'checked' : ''; ?>
                                     >
                                 </td>
-                                <td><strong><?php echo htmlspecialchars($insumo['nombre']); ?></strong></td>
-                                <td><?php echo htmlspecialchars($insumo['tipo']); ?></td>
-                                <td><?php echo formatearNumero($insumo['porcentaje_ms'], 2); ?>%</td>
+                                <td><strong style="color: var(--primary); font-size: 1.05rem;"><?php echo htmlspecialchars($insumo['nombre']); ?></strong></td>
                                 <td>
-                                    <input 
-                                        type="number" 
-                                        name="porcentajes[<?php echo $insumo['id_insumo']; ?>]"
-                                        id="porcentaje_<?php echo $insumo['id_insumo']; ?>"
-                                        step="0.01" 
-                                        min="0" 
-                                        max="100"
-                                        placeholder="0.00"
-                                        class="porcentaje-input"
-                                        style="width: 100%; padding: 0.5rem;"
-                                        value="<?php echo $valor_porcentaje; ?>"
-                                        <?php echo $esta_seleccionado ? '' : 'disabled'; ?>
-                                    >
+                                    <span class="badge" style="background: var(--bg-main); color: var(--text-main);">
+                                        <?php echo htmlspecialchars($insumo['tipo']); ?>
+                                    </span>
+                                </td>
+                                <td style="font-weight: 600;"><?php echo formatearNumero($insumo['porcentaje_ms'], 2); ?>%</td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                                        <input 
+                                            type="number" 
+                                            name="porcentajes[<?php echo $insumo['id_insumo']; ?>]"
+                                            id="porcentaje_<?php echo $insumo['id_insumo']; ?>"
+                                            step="0.01" 
+                                            min="0" 
+                                            max="100"
+                                            placeholder="0.00"
+                                            class="porcentaje-input"
+                                            style="width: 100px; text-align: right; padding: 0.5rem; font-weight: 800; border-radius: 8px;"
+                                            value="<?php echo $valor_porcentaje; ?>"
+                                            <?php echo $esta_seleccionado ? '' : 'disabled'; ?>
+                                        >
+                                        <span style="font-weight: 800; color: var(--text-muted);">%</span>
+                                    </div>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                        
-                        <!-- Fila de total -->
-                        <tr style="background: #f8f9fa; font-weight: bold;">
-                            <td colspan="4" style="text-align: right; padding: 1rem;">TOTAL:</td>
-                            <td style="padding: 1rem;">
-                                <div id="totalPorcentaje" style="font-size: 1.2rem; color: #2c5530;">0.00%</div>
+                        <?php endwhile; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: var(--bg-main); font-weight: 800; border-top: 2px solid var(--border);">
+                            <td colspan="4" style="text-align: right; padding: 1.25rem;">TOTAL DE LA MEZCLA:</td>
+                            <td style="padding: 1.25rem; text-align: center;">
+                                <div id="totalPorcentaje" style="font-size: 1.5rem; line-height: 1;">0.00%</div>
                             </td>
                         </tr>
-                    </tbody>
+                    </tfoot>
                 </table>
             </div>
             
-            <!-- Botones -->
-            <div class="btn-grupo">
-                <button type="submit" class="btn btn-primario">💾 Guardar Cambios</button>
-                <a href="ver.php?id=<?php echo $id_dieta; ?>" class="btn btn-secundario">❌ Cancelar</a>
+            <div style="display: flex; gap: 1rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex: 1; padding: 1rem;">
+                    <span>💾</span> Guardar Cambios
+                </button>
+                <a href="ver.php?id=<?php echo $id_dieta; ?>" class="btn btn-secondary btn-lg" style="flex: 0.3; padding: 1rem;">Cancelar</a>
             </div>
             
         <?php else: ?>
-            
-            <div class="mensaje mensaje-error">
-                ⚠️ No hay insumos activos disponibles. 
-                <a href="../insumos/crear.php">Creá al menos un insumo</a> antes de editar dietas.
+            <div class="card" style="background: #fee2e2; color: #991b1b; text-align: center; border: none; padding: 2rem;">
+                <p style="font-weight: 700; margin-bottom: 1rem; font-size: 1.1rem;">⚠️ No hay insumos registrados</p>
+                <a href="../insumos/crear.php" class="btn btn-primary">Crear Primer Insumo</a>
             </div>
-            
         <?php endif; ?>
-        
     </form>
-    
 </div>
 
 <!-- Verificar en cuántos lotes se está usando esta dieta -->
-<div class="tarjeta">
-    <h2 class="tarjeta-titulo">📊 Lotes que usan esta Dieta</h2>
+<div class="card">
+    <h3 class="card-title"><span>📊</span> Lotes que usan esta Dieta</h3>
     
     <?php
     $query_lotes = "
@@ -346,42 +345,40 @@ include '../../includes/header.php';
     ?>
     
     <?php if (mysqli_num_rows($lotes_asignados) > 0): ?>
-        
-        <div class="mensaje mensaje-info" style="margin-bottom: 1rem;">
-            ⚠️ <strong>Importante:</strong> Esta dieta está siendo utilizada en 
-            <?php echo mysqli_num_rows($lotes_asignados); ?> lote(s) activo(s). 
-            Los cambios afectarán las nuevas alimentaciones registradas.
+        <div style="background: #fef3c7; color: #92400e; padding: 1rem; border-radius: var(--radius); margin-bottom: 1.5rem; font-weight: 500; font-size: 0.9rem;">
+            ⚠️ <strong>Importante:</strong> Esta dieta está siendo utilizada en <?php echo mysqli_num_rows($lotes_asignados); ?> lote(s) activo(s). Los cambios afectarán los nuevos registros.
         </div>
         
-        <table style="margin-top: 1rem;">
-            <thead>
-                <tr>
-                    <th>Lote</th>
-                    <th>Fecha Desde</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($lote = mysqli_fetch_assoc($lotes_asignados)): ?>
+        <div class="table-container">
+            <table>
+                <thead>
                     <tr>
-                        <td><strong><?php echo htmlspecialchars($lote['lote_nombre']); ?></strong></td>
-                        <td><?php echo formatearFecha($lote['fecha_desde']); ?></td>
-                        <td>
-                            <?php if ($lote['lote_activo']): ?>
-                                <span class="estado estado-activo">Activo</span>
-                            <?php else: ?>
-                                <span class="estado estado-inactivo">Inactivo</span>
-                            <?php endif; ?>
-                        </td>
+                        <th>Lote</th>
+                        <th>Fecha Desde</th>
+                        <th>Estado</th>
                     </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-        
+                </thead>
+                <tbody>
+                    <?php while ($lote = mysqli_fetch_assoc($lotes_asignados)): ?>
+                        <tr>
+                            <td><strong style="color: var(--primary);"><?php echo htmlspecialchars($lote['lote_nombre']); ?></strong></td>
+                            <td><?php echo date('d/m/Y', strtotime($lote['fecha_desde'])); ?></td>
+                            <td>
+                                <?php if ($lote['lote_activo']): ?>
+                                    <span class="badge" style="background: #dcfce7; color: #166534;">Activo</span>
+                                <?php else: ?>
+                                    <span class="badge" style="background: #f3f4f6; color: #6b7280;">Inactivo</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
     <?php else: ?>
-        
-        <p style="color: #999;">Esta dieta no está asignada a ningún lote actualmente.</p>
-        
+        <p style="text-align: center; color: var(--text-muted); padding: 1.5rem; font-weight: 500;">
+            Esta dieta no está asignada a ningún lote actualmente.
+        </p>
     <?php endif; ?>
 </div>
 
