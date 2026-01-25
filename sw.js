@@ -1,57 +1,58 @@
-const CACHE_NAME = 'solufeed-v1';
-const ASSETS_TO_CACHE = [
-  '/solufeed/admin/campo/index.php',
-  '/solufeed/admin/alimentaciones/registrar.php',
-  '/solufeed/admin/pesadas/registrar.php',
-  '/solufeed/assets/css/main.css',
-  '/solufeed/assets/js/offline_manager.js',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap'
-];
+/**
+ * SOLUFEED - Service Worker (v3.0)
+ * (v3.0 - Arreglo de error crítico 'Failed to convert to Response')
+ */
 
-// Instalación: Cachear recursos estáticos
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('✅ Service Worker: Caching assets');
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+const CACHE_NAME = 'solufeed-cache-v3.2';
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
 });
 
-// Activación: Limpiar caches viejas
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('🧹 Service Worker: Removing old cache', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(key => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+      })
+    ))
   );
+  self.clients.claim();
 });
 
-// Fetch: Servir desde caché o red
 self.addEventListener('fetch', (event) => {
-  // Solo interceptar peticiones GET
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Si está en caché, devolverlo
-      if (response) {
-        return response;
-      }
+  const url = event.request.url;
+  if (!url.startsWith('http')) return;
 
-      // Si no, ir a la red
-      return fetch(event.request).catch(() => {
-        // Fallback offline (opcional, por ahora solo retornamos nada si falla)
-        // Podríamos retornar una página "offline.html" genérica aquí
-      });
-    })
+  event.respondWith(
+    fetch(event.request)
+      .then((res) => {
+        if (res && res.status === 200) {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, resClone);
+          });
+        }
+        return res;
+      })
+      .catch(async () => {
+        // MODO OFFLINE: Intentar recuperar de cache
+        const exactMatch = await caches.match(event.request);
+        if (exactMatch) return exactMatch;
+
+        const flexibleMatch = await caches.match(event.request, { ignoreSearch: true });
+        if (flexibleMatch) return flexibleMatch;
+
+        // FALLBACK FINAL: Siempre retornar un Response válido para evitar errores del SW
+        if (event.request.mode === 'navigate') {
+          const offlinePage = await caches.match('/offline.html');
+          if (offlinePage) return offlinePage;
+        }
+
+        // Si no es navegación (CSS, JS, Imágenes), retornar una respuesta vacía/error
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+      })
   );
 });

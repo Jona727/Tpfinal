@@ -1,129 +1,202 @@
-/**
- * Solufeed Offline Manager
- * Maneja el almacenamiento local y sincronización cuando vuelve la conexión.
- */
+if (typeof OfflineManager === 'undefined') {
+    const DB_NAME = 'SolufeedDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'offline_queue';
 
-const OfflineManager = {
-    // Clave para guardar en LocalStorage
-    STORAGE_KEY: 'solufeed_offline_queue',
+    window.OfflineManager = {
+        db: null,
 
-    /**
-     * Guarda una operación en la cola local
-     * @param {string} endpoint - URL a donde enviar los datos
-     * @param {object} data - Datos del formulario
-     * @param {string} tipo - 'alimentacion' o 'pesada'
-     */
-    saveToQueue: (endpoint, data, tipo) => {
-        let queue = JSON.parse(localStorage.getItem(OfflineManager.STORAGE_KEY) || '[]');
+        /**
+         * Inicializa la base de datos IndexedDB
+         */
+        initDB: function () {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        const operation = {
-            id: Date.now(), // ID único
-            endpoint: endpoint,
-            data: data,
-            tipo: tipo,
-            timestamp: new Date().toISOString()
-        };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
 
-        queue.push(operation);
-        localStorage.setItem(OfflineManager.STORAGE_KEY, JSON.stringify(queue));
+                request.onsuccess = (event) => {
+                    this.db = event.target.result;
+                    console.log('📦 [DB] IndexedDB inicializada con éxito');
+                    this.updateUIStatus();
+                    resolve(this.db);
+                };
 
-        console.warn('📡 Offline: Operación guardada localmente', operation);
-        alert('🌐 Sin conexión: Datos guardados en el dispositivo. Se enviarán cuando recuperes la señal.');
+                request.onerror = (event) => {
+                    console.error('❌ [DB] Error al abrir IndexedDB:', event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        },
 
-        OfflineManager.updateUIStatus();
-    },
+        /**
+         * Guarda una operación en la base de datos local
+         */
+        saveToQueue: async function (endpoint, data, tipo) {
+            if (!this.db) await this.initDB();
 
-    /**
-     * Intenta sincronizar los datos pendientes
-     */
-    sync: async () => {
-        if (!navigator.onLine) {
-            console.log('📴 Aún offline, esperando...');
-            return;
-        }
+            const operation = {
+                endpoint,
+                data,
+                tipo,
+                timestamp: new Date().toISOString()
+            };
 
-        let queue = JSON.parse(localStorage.getItem(OfflineManager.STORAGE_KEY) || '[]');
-        if (queue.length === 0) return;
+            const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
 
-        console.log(`🔃 Iniciando sincronización de ${queue.length} elementos...`);
-        OfflineManager.showSyncIndicator(true);
+            return new Promise((resolve, reject) => {
+                const request = store.add(operation);
+                request.onsuccess = () => {
+                    console.warn('📡 [Offline] Operación guardada en IndexedDB', operation);
+                    if (typeof showToast === 'function') {
+                        showToast(`Sin conexión: Registro de ${tipo} guardado localmente.`, 'warning');
+                    }
+                    this.updateUIStatus();
+                    resolve();
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        },
 
-        const newQueue = []; // Cola para los que fallen
+        /**
+         * Recupera todas las operaciones pendientes
+         */
+        getPendingItems: async function () {
+            if (!this.db) await this.initDB();
 
-        for (const op of queue) {
-            try {
-                const response = await fetch(op.endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams(op.data)
-                });
+            return new Promise((resolve, reject) => {
+                const transaction = this.db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
 
-                if (response.ok) {
-                    console.log(`✅ Sincronizado: ${op.tipo} (#${op.id})`);
-                } else {
-                    console.error(`❌ Falló la sincronización: ${op.tipo} (#${op.id})`);
-                    newQueue.push(op); // Mantener en cola si falla por error de servidor
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        },
+
+        /**
+         * Elimina una operación procesada
+         */
+        removeItem: async function (id) {
+            const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            return new Promise((resolve) => {
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+            });
+        },
+
+        /**
+         * Sincronización robusta v2.5
+         */
+        sync: async function () {
+            if (!navigator.onLine) return;
+
+            const pendingItems = await this.getPendingItems();
+            // Filtrar: solo registros reales que tengan una URL válida (endpoint)
+            const realData = pendingItems.filter(item => {
+                return item.id !== 'current_session' &&
+                    item.endpoint &&
+                    item.endpoint !== 'undefined' &&
+                    typeof item.endpoint === 'string';
+            });
+
+            if (realData.length === 0) return;
+
+            console.log(`🔃 [Sync] Detectados ${realData.length} registros para subir.`);
+            this.toggleSyncUI(true);
+
+            for (const item of realData) {
+                try {
+                    console.log(`📤 Sincronizando ${item.tipo} con: ${item.endpoint}`);
+                    const response = await fetch(item.endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(item.data)
+                    });
+
+                    if (response.ok) {
+                        await this.removeItem(item.id);
+                        console.log(`✅ [Sync] Registro #${item.id} ok.`);
+                    } else {
+                        console.error(`⚠️ [Sync] Error servidor en #${item.id}:`, response.status);
+                        // Si es un error fatal de la petición, podríamos borrarlo para no bloquear la cola
+                        if (response.status === 404) await this.removeItem(item.id);
+                    }
+                } catch (error) {
+                    console.error(`❌ [Sync] Error de red en #${item.id}:`, error);
+                    break; // Si falla la red del todo, paramos la cola
                 }
-            } catch (error) {
-                console.error(`❌ Error de red al sincronizar: ${op.tipo} (#${op.id})`);
-                newQueue.push(op); // Mantener en cola si falla la red
             }
+
+            this.toggleSyncUI(false);
+            this.updateUIStatus();
+
+            const remaining = (await this.getPendingItems()).filter(i => i.id !== 'current_session');
+            if (remaining.length === 0) {
+                if (typeof showToast === 'function') showToast('Sincronización finalizada.', 'success');
+
+                // Recargar si estamos en páginas de consulta para ver cambios
+                const path = window.location.pathname;
+                if (path.includes('index.php') || path.includes('historial') || path.includes('consultar')) {
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            }
+        },
+
+        /**
+         * Actualiza el contador visual en la interfaz
+         */
+        updateUIStatus: async function () {
+            const allItems = await this.getPendingItems();
+            // Filtrar solo registros reales (excluir la sesión técnica)
+            const items = allItems.filter(i => i.id !== 'current_session');
+
+            const statusDiv = document.getElementById('connection-status');
+            if (!statusDiv) return;
+
+            if (items.length > 0) {
+                statusDiv.innerHTML = `📡 Tienes <b>${items.length}</b> registros pendientes de sincronizar.`;
+                statusDiv.className = 'card alerta-offline';
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fff9db';
+                statusDiv.style.borderLeft = '5px solid #fab005';
+                statusDiv.style.padding = '1rem';
+                statusDiv.style.marginBottom = '1rem';
+            } else {
+                statusDiv.style.display = 'none';
+            }
+        },
+
+        toggleSyncUI: function (show) {
+            let overlay = document.getElementById('sync-progress-overlay');
+            if (!overlay && show) {
+                overlay = document.createElement('div');
+                overlay.id = 'sync-progress-overlay';
+                overlay.style = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(44,85,48,0.85); color:white; z-index:10000; display:flex; flex-direction:column; justify-content:center; align-items:center; font-family:Outfit, sans-serif;';
+                overlay.innerHTML = `
+                    <div style="font-size:3rem; margin-bottom:1rem; animation: rotate 2s linear infinite;">🔃</div>
+                    <h2 style="margin:0;">Sincronizando con Solufeed...</h2>
+                    <p>Por favor, no cierres el navegador.</p>
+                    <style>@keyframes rotate { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
+                `;
+                document.body.appendChild(overlay);
+            }
+            if (overlay) overlay.style.display = show ? 'flex' : 'none';
         }
+    };
 
-        localStorage.setItem(OfflineManager.STORAGE_KEY, JSON.stringify(newQueue));
-        OfflineManager.showSyncIndicator(false);
-        OfflineManager.updateUIStatus();
-
-        if (newQueue.length === 0) {
-            alert('✅ Sincronización completada. Todos los datos han sido enviados al servidor.');
-            window.location.reload(); // Recargar para actualizar contadores
-        }
-    },
-
-    /**
-     * Actualiza la interfaz visual del estado de conexión
-     */
-    updateUIStatus: () => {
-        const queue = JSON.parse(localStorage.getItem(OfflineManager.STORAGE_KEY) || '[]');
-        const statusDiv = document.getElementById('connection-status');
-
-        if (!statusDiv) return; // Si no existe el elemento en el DOM
-
-        if (queue.length > 0) {
-            statusDiv.innerHTML = `⚠️ <b>${queue.length}</b> operaciones pendientes de subir.`;
-            statusDiv.style.backgroundColor = '#fff3cd';
-            statusDiv.style.color = '#856404';
-            statusDiv.style.display = 'block';
-        } else {
-            statusDiv.style.display = 'none';
-        }
-    },
-
-    /**
-     * Muestra/Oculta overlay de "Sincronizando..."
-     */
-    showSyncIndicator: (show) => {
-        let el = document.getElementById('sync-overlay');
-        if (!el && show) {
-            el = document.createElement('div');
-            el.id = 'sync-overlay';
-            el.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);color:white;display:flex;justify-content:center;align-items:center;z-index:9999;font-size:1.5em;';
-            el.innerHTML = '🔃 Sincronizando datos...';
-            document.body.appendChild(el);
-        }
-
-        if (el) el.style.display = show ? 'flex' : 'none';
-    }
-};
-
-// Listeners globales
-window.addEventListener('online', OfflineManager.sync);
-window.addEventListener('load', () => {
-    OfflineManager.updateUIStatus();
-    // Intentar sync al cargar si hay conexión
-    if (navigator.onLine) {
-        OfflineManager.sync();
-    }
-});
+    // Inicialización y Listeners
+    window.addEventListener('online', () => OfflineManager.sync());
+    window.addEventListener('load', () => {
+        OfflineManager.initDB().then(() => {
+            if (navigator.onLine) OfflineManager.sync();
+        });
+    });
+}

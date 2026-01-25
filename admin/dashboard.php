@@ -4,8 +4,8 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../models/StatsModel.php';
 
-// Verificar sesión
-verificarSesion();
+// Verificar sesión y rol ADMIN
+verificarAdmin();
 
 $page_title = "Dashboard - Panel de Control";
 $stats = new StatsModel();
@@ -46,7 +46,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <strong style="color: #856404;">Atención: <?php echo $alertas['lotes_sin_alimentar']; ?> lote(s) sin alimentar hoy</strong>
                         <span style="font-size: 0.9rem; color: #856404; opacity: 0.8;">Hay lotes que aún no han recibido su ración diaria.</span>
                     </div>
-                    <a href="lotes/listar.php" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Gestionar</a>
+                    <a href="lotes/listar.php?filtro=sin_alimentar" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Gestionar</a>
                 </div>
             <?php endif; ?>
 
@@ -57,7 +57,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <strong style="color: var(--secondary);"><?php echo $alertas['lotes_sin_dieta']; ?> lote(s) sin dieta asignada</strong>
                         <span style="font-size: 0.9rem; color: var(--secondary); opacity: 0.8;">Es necesario asignar una dieta para poder registrar consumos.</span>
                     </div>
-                    <a href="lotes/listar.php" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Asignar</a>
+                    <a href="lotes/listar.php?filtro=sin_dieta" class="btn btn-secondary" style="margin-left: auto; font-size: 0.8rem; padding: 0.5rem 1rem;">Asignar</a>
                 </div>
             <?php endif; ?>
 

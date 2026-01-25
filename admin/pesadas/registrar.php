@@ -14,6 +14,15 @@ verificarCampo();
 $lote_preseleccionado = isset($_GET['lote']) ? (int) $_GET['lote'] : null;
 
 // Obtener lotes activos
+$sql_join_usuario = "";
+$sql_where_usuario = "";
+
+if (isset($_SESSION['tipo']) && $_SESSION['tipo'] === 'CAMPO') {
+    $sql_join_usuario = "INNER JOIN usuario_tropa ut ON t.id_tropa = ut.id_tropa";
+    $sql_where_usuario = "AND ut.id_usuario = " . intval($_SESSION['usuario_id']);
+}
+
+// Obtener lotes activos
 $query_lotes = "
     SELECT 
         t.id_tropa,
@@ -21,7 +30,9 @@ $query_lotes = "
         c.nombre as campo_nombre
     FROM tropa t
     INNER JOIN campo c ON t.id_campo = c.id_campo
+    $sql_join_usuario
     WHERE t.activo = 1
+    $sql_where_usuario
     ORDER BY t.nombre ASC
 ";
 $lotes_disponibles = ejecutarConsulta($query_lotes);
@@ -88,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pesada'])) {
     $animales_esperados_form = (int) $_POST['animales_esperados'];
     $animales_vistos = (int) $_POST['animales_vistos'];
     $hay_diferencia = ($animales_vistos != $animales_esperados_form) ? 1 : 0;
+    $origen_registro = isset($_POST['origen_registro']) ? limpiarDato($_POST['origen_registro']) : 'ONLINE';
     
     // Si hay diferencia, recibir datos adicionales
     $diferencia_animales = 0;
@@ -125,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pesada'])) {
             INSERT INTO pesada 
             (id_tropa, id_usuario, fecha, peso_promedio, animales_esperados, animales_vistos, hay_diferencia, origen_registro, fecha_creacion)
             VALUES 
-            ($id_tropa, {$_SESSION['usuario_id']}, '$fecha', $peso_promedio, $animales_esperados_form, $animales_vistos, $hay_diferencia, 'ONLINE', NOW())
+            ($id_tropa, {$_SESSION['usuario_id']}, '$fecha', $peso_promedio, $animales_esperados_form, $animales_vistos, $hay_diferencia, '$origen_registro', NOW())
         ";
         
         if (ejecutarConsulta($query_pesada)) {
@@ -149,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pesada'])) {
                 $exito .= " Se creó un ajuste pendiente para revisión del administrador.";
             }
             
-            header("refresh:3;url=../lotes/ver.php?id=$id_tropa");
+            header("refresh:2;url=../campo/index.php");
             
         } else {
             $errores[] = "Error al registrar la pesada.";
@@ -191,7 +203,7 @@ include '../../includes/header.php';
         
         <div class="form-grupo">
             <label for="id_tropa">Lote a Pesar *</label>
-            <select id="id_tropa" name="id_tropa" required onchange="this.form.submit()">
+            <select id="id_tropa" name="id_tropa" required onchange="if(this.value) window.location.href='?lote=' + this.value;">
                 <option value="">-- Seleccioná un lote --</option>
                 <?php while ($lote = mysqli_fetch_assoc($lotes_disponibles)): ?>
                     <option value="<?php echo $lote['id_tropa']; ?>"
@@ -374,6 +386,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const inputPeso = document.getElementById('peso_promedio');
     const inputAnimalesVistos = document.getElementById('animales_vistos');
+    
+    if (!inputPeso || !inputAnimalesVistos) return; // Salir si no hay lote seleccionado
+    
     const animalesEsperados = parseInt(document.getElementById('animales_esperados').value) || 0;
     const diferenciaContainer = document.getElementById('diferencia-container');
     const textoDiferencia = document.getElementById('texto-diferencia');
@@ -439,7 +454,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../../includes/footer.php'; ?>
-<script src="/solufeed/assets/js/offline_manager.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
@@ -457,6 +471,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Bandera para el servidor
             data['guardar_pesada'] = '1';
+            data['origen_registro'] = 'OFFLINE';
             
             OfflineManager.saveToQueue(window.location.href, data, 'pesada');
             

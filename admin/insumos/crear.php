@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($porcentaje_ms < 0 || $porcentaje_ms > 100) {
         $error = "El porcentaje de MS debe estar entre 0 y 100";
     } else {
-        // Verificar que no exista otro insumo con el mismo nombre
-        $stmt = $db->prepare("SELECT COUNT(*) as total FROM insumo WHERE nombre = ?");
+        // Verificar que no exista otro insumo ACTIVO con el mismo nombre
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM insumo WHERE nombre = ? AND activo = 1");
         $stmt->execute([$nombre]);
         $existe = $stmt->fetch()['total'];
         
