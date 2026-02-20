@@ -190,8 +190,9 @@ require_once '../../includes/header.php';
                             <?php endif; ?>
                         <?php endif; ?>
                     <?php endfor; ?>
+                <?php endif; ?>
 
-                    <?php if ($pagina_actual < $total_paginas): ?>
+                <?php if ($pagina_actual < $total_paginas): ?>
                         <a href="?pagina=<?php echo $pagina_actual + 1; ?><?php echo !empty($busqueda) ? '&busqueda=' . urlencode($busqueda) : ''; ?><?php echo $mostrar_inactivos ? '&inactivos=1' : ''; ?>" class="btn btn-secondary" style="padding: 0.5rem 1rem;">›</a>
                         <a href="?pagina=<?php echo $total_paginas; ?><?php echo !empty($busqueda) ? '&busqueda=' . urlencode($busqueda) : ''; ?><?php echo $mostrar_inactivos ? '&inactivos=1' : ''; ?>" class="btn btn-secondary" style="padding: 0.5rem 1rem;">»</a>
                     <?php endif; ?>
@@ -220,6 +221,7 @@ require_once '../../includes/header.php';
             </div>
         <?php endif; ?>
     </div>
+
 </div>
 
 <?php require_once '../../includes/footer.php'; ?>

@@ -91,17 +91,34 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="card" style="background: linear-gradient(135deg, white 0%, #fff7ed 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
-            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">📈</div>
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">ADPV Promedio</div>
-            <div style="font-size: 2.2rem; font-weight: 800; color: #c2410c;"><?php echo number_format($adpv, 2); ?> <span style="font-size: 1rem;">kg</span></div>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Ganancia diaria (30d)</div>
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">🍽️</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Alimentaciones Hoy</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #c2410c;"><?php echo $hoyStats['alimentaciones']; ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Registros del día</div>
         </div>
 
         <div class="card" style="background: linear-gradient(135deg, white 0%, #fdf2f8 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
-            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">⚡</div>
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Eficiencia</div>
-            <div style="font-size: 2.2rem; font-weight: 800; color: #be185d;"><?php echo number_format($eficiencia, 3); ?></div>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Conversión (kg carne/kg MS)</div>
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">⚖️</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">Kg Entregados Hoy</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #be185d;"><?php echo number_format($hoyStats['kg_totales'], 0); ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Total Bruto (kg)</div>
+        </div>
+
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #fefce8 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">📈</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">ADPV Promedio</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #854d0e;"><?php echo number_format($adpv, 2); ?> <span style="font-size: 1rem;">kg</span></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Dernieros 30 días</div>
+        </div>
+
+        <div class="card" style="background: linear-gradient(135deg, white 0%, #f0f9ff 100%); border: none; padding: 1.5rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.05; transform: rotate(-15deg);">🌾</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">CMS Promedio</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #075985;"><?php echo number_format($cms, 2); ?> <span style="font-size: 1rem;">kg</span></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Consumo MS/cab/día</div>
+        </div>
+    </div>
+
         </div>
     </div>
 
@@ -207,6 +224,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <div style="text-align: center; padding: 3rem; color: var(--text-muted);">No hay alimentaciones recientes.</div>
             <?php endif; ?>
         </div>
+    </div>
+
     </div>
 </div>
 

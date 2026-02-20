@@ -212,49 +212,6 @@ include '../../includes/header.php';
             </div>
         </div>
         
-        <!-- Categoría -->
-        <div class="form-grupo">
-            <label for="categoria">Categoría</label>
-            <input 
-                type="text" 
-                id="categoria" 
-                name="categoria" 
-                placeholder="Ej: Novillos 350-400kg, Terneros 180-220kg"
-                value="<?php echo htmlspecialchars($lote['categoria']); ?>"
-            >
-            <small>Describí la categoría y/o peso promedio inicial de los animales (opcional).</small>
-        </div>
-        
-        <!-- Fecha de inicio -->
-        <div class="form-grupo">
-            <label for="fecha_inicio">Fecha de Inicio *</label>
-            <input 
-                type="date" 
-                id="fecha_inicio" 
-                name="fecha_inicio" 
-                required 
-                class="input-mediano"
-                value="<?php echo $lote['fecha_inicio']; ?>"
-            >
-            <small>Fecha en que ingresaron los animales al feedlot.</small>
-        </div>
-        
-        <!-- Cantidad inicial -->
-        <div class="form-grupo">
-            <label for="cantidad_inicial">Cantidad Inicial de Animales *</label>
-            <input 
-                type="number" 
-                id="cantidad_inicial" 
-                name="cantidad_inicial" 
-                required 
-                min="1"
-                class="input-pequeno"
-                placeholder="Ej: 50"
-                value="<?php echo $lote['cantidad_inicial']; ?>"
-            >
-            <small>Cantidad de animales con la que comenzó el lote.</small>
-        </div>
-        
         <div style="font-size: 0.8rem; color: var(--text-muted); margin: 1.5rem 0; display: flex; gap: 1rem; background: var(--bg-main); padding: 0.75rem; border-radius: 8px;">
             <span><strong>Creado:</strong> <?php echo date('d/m/Y H:i', strtotime($lote['fecha_creacion'])); ?></span>
             <?php if ($lote['fecha_actualizacion']): ?>
@@ -303,6 +260,7 @@ include '../../includes/header.php';
         <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-main); border-radius: var(--radius); display: flex; align-items: center; gap: 1rem;">
             <input type="checkbox" name="activo" id="activo" value="1" <?php echo $lote['activo'] ? 'checked' : ''; ?> style="width: 20px; height: 20px;">
             <label for="activo" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Lote activo (aparece en Hub de Campo)</label>
+        </div>
         </div>
         
         <!-- Botones -->

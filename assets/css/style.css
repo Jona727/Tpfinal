@@ -27,41 +27,93 @@ body {
 ======================================== */
 
 .sidebar {
-    width: 260px;
-    background: linear-gradient(180deg, #2c5530 0%, #1e3d22 100%);
-    color: white;
     position: fixed;
+    left: 0;
+    top: 0;
+    width: 260px;
     height: 100vh;
+    background: #1a3a1f;
+    color: white;
     overflow-y: auto;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 25px 20px;
+    background: #2c5530;
     text-align: center;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
 }
 
 .sidebar-logo {
-    font-size: 2rem;
-    margin-bottom: 0.3rem;
+    font-size: 3em;
+    margin-bottom: 10px;
 }
 
 .sidebar-title {
-    font-size: 1.3rem;
+    font-size: 1.5em;
     font-weight: bold;
     margin: 0;
 }
 
 .sidebar-subtitle {
-    font-size: 0.85rem;
+    font-size: 0.85em;
     opacity: 0.8;
-    margin: 0;
+    margin-top: 5px;
 }
 
 .sidebar-menu {
-    padding: 1rem 0;
+    padding: 20px 0;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.sidebar-menu ul {
+    list-style: none;
+}
+
+.sidebar-menu li a {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.sidebar-menu li a:hover {
+    background: rgba(255,255,255,0.1);
+    padding-left: 25px;
+}
+
+.menu-icono {
+    font-size: 1.3em;
+    margin-right: 12px;
+    width: 30px;
+    text-align: center;
+}
+
+.menu-texto {
+    font-size: 0.95em;
+}
+
+.menu-separador {
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 15px 20px;
+}
+
+.menu-titulo {
+    padding: 10px 20px;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
+    font-weight: bold;
 }
 
 .menu-section {
@@ -113,29 +165,43 @@ body {
 }
 
 .sidebar-footer {
-    position: absolute;
-    bottom: 0;
     width: 100%;
-    padding: 1rem 1.5rem;
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
     border-top: 1px solid rgba(255,255,255,0.1);
-    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 .user-info {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 10px;
 }
 
 .user-avatar {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.2);
+    background: #2c5530;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.2em;
+}
+
+.user-details {
+    flex: 1;
+}
+
+.user-name {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.user-role {
+    font-size: 0.75em;
+    opacity: 0.7;
 }
 
 /* ========================================
@@ -639,28 +705,711 @@ table tbody tr:hover {
 }
 
 /* ========================================
+   DASHBOARD
+======================================== */
+
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.titulo-dashboard {
+    margin-bottom: 20px;
+}
+
+.alertas-container {
+    margin-bottom: 25px;
+}
+
+.alerta {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 15px 20px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.alerta.critica {
+    background: #f8d7da;
+    border-left-color: #dc3545;
+}
+
+.alerta .icono {
+    font-size: 1.5em;
+}
+
+.alerta .contenido {
+    flex: 1;
+}
+
+.alerta strong {
+    display: block;
+    margin-bottom: 3px;
+}
+
+.alerta a {
+    color: inherit;
+    text-decoration: underline;
+    font-weight: bold;
+}
+
+.indicadores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.graficos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.grafico-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    height: 350px;
+}
+
+.grafico-card h3 {
+    margin: 0 0 20px 0;
+    color: #2c5530;
+}
+
+.grafico-card canvas {
+    max-height: 280px;
+}
+
+.tabla-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.tabla-card h3 {
+    margin: 0 0 20px 0;
+    color: #2c5530;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.badge-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.texto-secundario {
+    color: #666;
+}
+
+/* ========================================
+   DIETAS
+======================================== */
+
+.dietas-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header-section h1 {
+    margin: 0 0 5px 0;
+}
+
+.header-section p {
+    margin: 0;
+    color: #666;
+}
+
+.btn-crear {
+    background: #2c5530;
+    color: white;
+    padding: 12px 25px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-crear:hover {
+    background: #3d7043;
+    transform: translateY(-2px);
+}
+
+.dietas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.dieta-card {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+    border-left: 5px solid #2c5530;
+}
+
+.dieta-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.dieta-nombre {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #2c5530;
+    margin: 0 0 10px 0;
+}
+
+.dieta-descripcion {
+    color: #666;
+    font-size: 0.95em;
+    margin: 0 0 15px 0;
+    line-height: 1.5;
+    min-height: 45px;
+}
+
+.dieta-descripcion em {
+    color: #999;
+}
+
+.dieta-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 15px 0;
+    padding: 15px 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+}
+
+.info-item {
+    text-align: center;
+}
+
+.info-numero {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #2c5530;
+    margin: 0;
+}
+
+.info-etiqueta {
+    font-size: 0.85em;
+    color: #666;
+    margin: 5px 0 0 0;
+}
+
+.dieta-badges {
+    margin: 15px 0;
+    text-align: center;
+}
+
+.dieta-acciones {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.btn-accion {
+    padding: 8px 12px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.9em;
+    font-weight: bold;
+    text-align: center;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-ver {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-ver:hover {
+    background: #138496;
+}
+
+.btn-editar {
+    background: #2c5530;
+    color: white;
+}
+
+.btn-editar:hover {
+    background: #3d7043;
+}
+
+.btn-eliminar {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-eliminar:hover {
+    background: #c82333;
+}
+
+.badge-activa {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-en-uso {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.dieta-footer {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    font-size: 0.85em;
+    color: #999;
+    text-align: center;
+}
+
+.mensaje-vacio {
+    background: white;
+    padding: 60px 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.mensaje-vacio .icono {
+    font-size: 5em;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.mensaje-vacio h2 {
+    color: #666;
+}
+
+.mensaje-vacio p {
+    color: #999;
+}
+
+.mensaje-vacio .btn-crear {
+    margin-top: 20px;
+}
+
+.stats-dietas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card .numero {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #2c5530;
+}
+
+.stat-card .etiqueta {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.ver-dieta-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.breadcrumb {
+    margin-bottom: 20px;
+}
+
+.breadcrumb a {
+    color: #2c5530;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.dieta-header {
+    background: linear-gradient(135deg, #2c5530 0%, #3d7043 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.dieta-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.2em;
+}
+
+.dieta-header p {
+    margin: 0;
+    font-size: 1.1em;
+    opacity: 0.95;
+}
+
+.info-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.info-card h3 {
+    margin: 0 0 20px 0;
+    color: #2c5530;
+    font-size: 1.5em;
+    border-bottom: 2px solid #2c5530;
+    padding-bottom: 10px;
+}
+
+.composicion-tabla {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.composicion-tabla thead {
+    background: #f8f9fa;
+}
+
+.composicion-tabla th {
+    padding: 12px;
+    text-align: left;
+    font-weight: bold;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.composicion-tabla td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.composicion-tabla tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.tipo-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.tipo-grano { background: #fff3cd; color: #856404; }
+.tipo-forraje { background: #d4edda; color: #155724; }
+.tipo-concentrado { background: #d1ecf1; color: #0c5460; }
+.tipo-suplemento { background: #f8d7da; color: #721c24; }
+
+.porcentaje-bar {
+    height: 25px;
+    background: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+}
+
+.porcentaje-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2c5530 0%, #3d7043 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.resumen-ms {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    border-left: 4px solid #2c5530;
+}
+
+.resumen-ms h4 {
+    margin: 0 0 15px 0;
+    color: #2c5530;
+}
+
+.ms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.ms-item {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.ms-item .valor {
+    font-size: 2em;
+    font-weight: bold;
+    color: #2c5530;
+    margin: 0;
+}
+
+.ms-item .etiqueta {
+    font-size: 0.9em;
+    color: #666;
+    margin: 5px 0 0 0;
+}
+
+.nota-box {
+    margin-top: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+}
+
+.nota-box p {
+    margin: 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.sin-insumos {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.sin-insumos-icono {
+    font-size: 3em;
+    margin-bottom: 15px;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-volver {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-volver:hover {
+    background: #5a6268;
+}
+
+.lotes-lista {
+    list-style: none;
+    padding: 0;
+}
+
+.lotes-lista li {
+    background: #f8f9fa;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #2c5530;
+}
+
+.lotes-lista li strong {
+    color: #2c5530;
+    font-size: 1.1em;
+}
+
+.lotes-lista li small {
+    color: #666;
+}
+
+.sin-lotes {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+}
+
+.seccion-titulo-formulario {
+    color: #2c5530;
+    margin-bottom: 1rem;
+}
+
+.tabla-insumos {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-insumos thead tr {
+    background: #f8f9fa;
+}
+
+.tabla-insumos th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: bold;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.tabla-insumos th.checkbox-col {
+    width: 50px;
+    text-align: center;
+}
+
+.tabla-insumos th.porcentaje-col {
+    width: 150px;
+}
+
+.tabla-insumos th.ms-col {
+    width: 100px;
+}
+
+.tabla-insumos td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tabla-insumos td.checkbox-cell {
+    text-align: center;
+}
+
+.porcentaje-input {
+    width: 100%;
+    padding: 0.5rem;
+}
+
+.fila-total {
+    background: #f8f9fa;
+    font-weight: bold;
+}
+
+.total-label {
+    text-align: right;
+    padding: 1rem;
+}
+
+.total-display {
+    font-size: 1.2rem;
+    color: #2c5530;
+    padding: 1rem;
+}
+
+/* ========================================
    RESPONSIVE
 ======================================== */
 
 @media (max-width: 768px) {
     .sidebar {
-        width: 200px;
+        width: 70px;
     }
-    
+
+    .sidebar-title,
+    .sidebar-subtitle,
+    .menu-texto,
+    .menu-titulo,
+    .user-details {
+        display: none;
+    }
+
+    .sidebar-menu li a {
+        justify-content: center;
+        padding: 15px 10px;
+    }
+
+    .sidebar-menu li a:hover {
+        padding-left: 10px;
+    }
+
+    .menu-icono {
+        margin-right: 0;
+    }
+
     .main-wrapper {
-        margin-left: 200px;
+        margin-left: 70px;
     }
-    
+
+    .sidebar-footer {
+        padding: 10px;
+    }
+
+    .user-avatar {
+        width: 35px;
+        height: 35px;
+        font-size: 1em;
+    }
+
     .indicadores-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .btn-grupo {
         flex-direction: column;
     }
-    
+
     .btn {
         width: 100%;
+    }
+
+    .graficos {
+        grid-template-columns: 1fr;
+    }
+
+    .indicadores {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dietas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dieta-acciones {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -697,4 +1446,165 @@ table tbody tr:hover {
     padding: 2rem;
     font-size: 1.2rem;
     color: #666;
+}
+
+/* ========================================
+   MÓDULO LOTES - ESTILOS ESPECÍFICOS
+======================================== */
+
+/* Header de secciones con acciones */
+.seccion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Grid de información general */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Grid de indicadores */
+.indicadores-grid-detalle {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Tarjeta de resumen con fondo degradado */
+.tarjeta-resumen {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Separador horizontal estilizado */
+.separador-horizontal {
+    margin: 2rem 0;
+    border: none;
+    border-top: 2px solid #e9ecef;
+}
+
+/* Sección con título y contenido */
+.seccion-titulo {
+    color: #2c5530;
+    margin-bottom: 1rem;
+}
+
+.seccion-titulo-small {
+    color: #2c5530;
+    margin-bottom: 0.5rem;
+}
+
+/* Badge de días de engorde */
+.badge-dias {
+    background: #e3f2fd;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* Texto destacado en lotes */
+.texto-destacado-lote {
+    font-size: 1.1rem;
+    color: #2c5530;
+}
+
+/* Valor grande de resumen */
+.valor-resumen {
+    font-size: 2.5rem;
+    color: #2c5530;
+    font-weight: bold;
+}
+
+.valor-resumen-peligro {
+    font-size: 2.5rem;
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Etiqueta de resumen */
+.etiqueta-resumen {
+    color: #666;
+}
+
+/* Información de campo pequeño */
+.info-pequeña {
+    color: #999;
+}
+
+/* Estado inline con margen */
+.estado-inline {
+    font-size: 0.9rem;
+    margin-left: 1rem;
+}
+
+/* Lista de errores en mensajes */
+.mensaje-lista {
+    margin: 0.5rem 0 0 1.5rem;
+}
+
+/* Texto vigente en color verde */
+.texto-vigente {
+    color: #28a745;
+    font-weight: 600;
+}
+
+/* Flex container para dieta */
+.dieta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Colores para niveles de sobrante */
+.nivel-sin-sobras {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.nivel-pocas-sobras {
+    color: #ffc107;
+    font-weight: 600;
+}
+
+.nivel-normal {
+    color: #17a2b8;
+    font-weight: 600;
+}
+
+.nivel-muchas-sobras {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+/* Colores para tipos de movimiento */
+.movimiento-positivo {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.movimiento-negativo {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.movimiento-neutral {
+    color: #17a2b8;
+    font-weight: 600;
+}
+
+/* Grid de resumen con centrado */
+.resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.resumen-item {
+    text-align: center;
 }

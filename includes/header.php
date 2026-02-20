@@ -11,11 +11,10 @@
     
     <!-- CSS Principal -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/main.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     
     <!-- PWA -->
-    <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
-
 
     <meta name="theme-color" content="#2c5530">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2395/2395796.png">
@@ -30,16 +29,6 @@
             navigator.serviceWorker.register('/sw.js')
                 .then(registration => {
                     console.log('✅ [PWA] Service Worker registrado con éxito. Scope:', registration.scope);
-                    
-                    // Detectar actualizaciones
-                    registration.onupdatefound = () => {
-                        const installingWorker = registration.installing;
-                        installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('🔄 [PWA] Nueva versión disponible. Recargue la página.');
-                            }
-                        };
-                    };
                 })
                 .catch(err => {
                     console.error('❌ [PWA] Error al registrar el Service Worker:', err);
@@ -47,9 +36,6 @@
         });
     }
     </script>
-
-
-
 
     <script>
     function showToast(message, type = 'success') {
@@ -76,19 +62,15 @@
         `;
 
         container.appendChild(toast);
-
-        // Animar entrada
         setTimeout(() => toast.classList.add('show'), 10);
-
-        // Auto-eliminar
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 400);
         }, 4000);
     }
     </script>
-    <!-- Script de soporte para managers -->
     <script src="<?php echo BASE_URL; ?>/assets/js/offline_manager.js"></script>
+
     <!-- CORE PWA v3.2 - SOLUCIÓN TANQUE -->
     <script>
     const CACHE_NAME = 'solufeed-cache-v3.2';
@@ -185,8 +167,6 @@
         <?php endif; ?>
     });
     </script>
-    <!-- Script de soporte para managers -->
-    <script src="<?php echo BASE_URL; ?>/assets/js/offline_manager.js"></script>
 </head>
 <body>
     <!-- Mobile Menu Overlay -->
@@ -299,4 +279,18 @@
 
     <!-- MAIN WRAPPER -->
     <div class="main-wrapper">
+        <header class="top-bar">
+            <div class="breadcrumb">
+                <?php
+                if (isset($page_title)) {
+                    echo '<a href="' . BASE_URL . '/admin/dashboard.php">Inicio</a> / ' . htmlspecialchars($page_title);
+                }
+                ?>
+            </div>
+            <div class="top-bar-actions">
+                <span><?php echo date('d/m/Y'); ?></span>
+            </div>
+        </header>
+
         <main class="content">
+            <div class="container">

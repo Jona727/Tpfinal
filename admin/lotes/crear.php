@@ -103,6 +103,7 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
     
+    <form method="POST">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
             <div class="form-group">
                 <label for="nombre">Nombre del Lote *</label>
@@ -143,50 +144,7 @@ include '../../includes/header.php';
                 <small style="color: var(--text-muted); font-size: 0.8rem;">Cantidad total inicial.</small>
             </div>
         </div>
-        
-        <!-- Categoría -->
-        <div class="form-grupo">
-            <label for="categoria">Categoría</label>
-            <input 
-                type="text" 
-                id="categoria" 
-                name="categoria" 
-                placeholder="Ej: Novillos 350-400kg, Terneros 180-220kg"
-                value="<?php echo isset($_POST['categoria']) ? htmlspecialchars($_POST['categoria']) : ''; ?>"
-            >
-            <small>Describí la categoría y/o peso promedio inicial de los animales (opcional).</small>
-        </div>
-        
-        <!-- Fecha de inicio -->
-        <div class="form-grupo">
-            <label for="fecha_inicio">Fecha de Inicio *</label>
-            <input 
-                type="date" 
-                id="fecha_inicio" 
-                name="fecha_inicio" 
-                required 
-                class="input-mediano"
-                value="<?php echo isset($_POST['fecha_inicio']) ? $_POST['fecha_inicio'] : date('Y-m-d'); ?>"
-            >
-            <small>Fecha en que ingresaron los animales al feedlot.</small>
-        </div>
-        
-        <!-- Cantidad inicial -->
-        <div class="form-grupo">
-            <label for="cantidad_inicial">Cantidad Inicial de Animales *</label>
-            <input 
-                type="number" 
-                id="cantidad_inicial" 
-                name="cantidad_inicial" 
-                required 
-                min="1"
-                class="input-pequeno"
-                placeholder="Ej: 50"
-                value="<?php echo isset($_POST['cantidad_inicial']) ? $_POST['cantidad_inicial'] : ''; ?>"
-            >
-            <small>Cantidad de animales con la que comienza el lote.</small>
-        </div>
-        
+
         <div style="background: var(--bg-main); padding: 2rem; border-radius: var(--radius); border: 1px solid var(--border); margin: 2rem 0;">
             <h3 style="color: var(--primary); font-weight: 800; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                 <span>📋</span> Asignación de Dieta (Opcional)
@@ -217,6 +175,8 @@ include '../../includes/header.php';
         <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-main); border-radius: var(--radius); display: flex; align-items: center; gap: 1rem;">
             <input type="checkbox" name="activo" id="activo" value="1" <?php echo (!isset($_POST['activo']) || $_POST['activo']) ? 'checked' : ''; ?> style="width: 20px; height: 20px;">
             <label for="activo" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Lote activo (disponible para operaciones diarias)</label>
+        </div>
+
         </div>
         
         <!-- Botones -->

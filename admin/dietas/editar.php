@@ -245,6 +245,61 @@ include '../../includes/header.php';
     </form>
 </div>
 
+<!-- Verificar en cuántos lotes se está usando esta dieta -->
+<?php
+$stmt_lotes = $db->prepare("
+    SELECT 
+        t.nombre as lote_nombre,
+        tda.fecha_desde,
+        t.activo as lote_activo
+    FROM tropa_dieta_asignada tda
+    INNER JOIN tropa t ON tda.id_tropa = t.id_tropa
+    WHERE tda.id_dieta = ?
+    AND (tda.fecha_hasta IS NULL OR tda.fecha_hasta >= CURDATE())
+    ORDER BY tda.fecha_desde DESC
+");
+$stmt_lotes->execute([$id_dieta]);
+$lotes_asignados = $stmt_lotes->fetchAll();
+?>
+
+<?php if (count($lotes_asignados) > 0): ?>
+    <div class="card" style="margin-top: 2rem;">
+        <h3 style="font-weight: 800; color: var(--primary); margin-bottom: 1.5rem;">📊 Lotes que usan esta Dieta</h3>
+        
+        <div style="background: #f1f5f9; border-left: 5px solid var(--primary); padding: 1rem; margin-bottom: 1.5rem; border-radius: var(--radius); font-size: 0.9rem;">
+            ⚠️ <strong>Importante:</strong> Esta dieta está siendo utilizada en <?php echo count($lotes_asignados); ?> lote(s). Los cambios afectarán las nuevas alimentaciones.
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lote</th>
+                        <th>Desde</th>
+                        <th style="text-align: right;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($lotes_asignados as $lote): ?>
+                        <tr>
+                            <td><strong style="color: var(--primary);"><?php echo htmlspecialchars($lote['lote_nombre']); ?></strong></td>
+                            <td><?php echo date('d/m/Y', strtotime($lote['fecha_desde'])); ?></td>
+                            <td style="text-align: right;">
+                                <?php if ($lote['lote_activo']): ?>
+                                    <span class="badge" style="background: #dcfce7; color: #166534;">Activo</span>
+                                <?php else: ?>
+                                    <span class="badge" style="background: #f1f5f9; color: #475569;">Inactivo</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<?php endif; ?>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.insumo-checkbox');

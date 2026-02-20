@@ -183,6 +183,7 @@ include '../../includes/header.php';
 </div>
 
 <!-- Indicadores clave -->
+INDICADORES_KEY
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
     
     <div class="card" style="text-align: center; margin-bottom: 0; padding: 1.25rem;">

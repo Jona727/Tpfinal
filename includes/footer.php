@@ -1,5 +1,5 @@
-
-        </main> <!-- Cierra contenido-principal -->
+            </div> <!-- Cierra container -->
+        </main> <!-- Cierra content -->
         
         <footer class="footer-principal">
             <div class="container">

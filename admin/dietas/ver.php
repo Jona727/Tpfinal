@@ -28,7 +28,7 @@ if (!$dieta) {
 
 // Obtener composición de la dieta
 $stmt = $db->prepare("
-    SELECT 
+    SELECT
         dd.*,
         i.nombre as nombre_insumo,
         i.tipo,
@@ -65,7 +65,6 @@ $lotes_usando = $stmt->fetchAll();
 
 require_once '../../includes/header.php';
 ?>
-
 
 
 <div class="ver-dieta-container">
@@ -214,7 +213,7 @@ require_once '../../includes/header.php';
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
-            <div style="text-align: center; padding: 30px; color: #666;">
+            <div class="sin-lotes">
                 <p>📊 Esta dieta no está siendo usada por ningún lote actualmente.</p>
             </div>
         <?php endif; ?>

@@ -83,6 +83,7 @@ $lotes = $stmt->fetchAll();
             ?>
         </p>
     </div>
+    </div>
     <div style="display: flex; gap: 1rem;">
         <?php if ($filtro): ?>
             <a href="listar.php" class="btn btn-secondary" style="padding: 0.875rem 1.5rem;">
@@ -145,11 +146,11 @@ $lotes = $stmt->fetchAll();
                             </td>
                             <td>
                                 <?php if ($lote['dieta_nombre']): ?>
+<<<<<<< HEAD
                                     <span style="color: var(--primary); font-weight: 600;">✓ <?php echo htmlspecialchars($lote['dieta_nombre']); ?></span>
                                 <?php else: ?>
                                     <span style="color: var(--danger); font-weight: 700;">⚠ Sin dieta</span>
                                 <?php endif; ?>
-                            </td>
                             <td style="text-align: center;">
                                 <span style="background: var(--bg-main); padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">
                                     <?php echo $dias_engorde; ?> d
@@ -221,13 +222,16 @@ $lotes = $stmt->fetchAll();
                 <div style="font-size: 3rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem;"><?php echo number_format($total_animales); ?></div>
                 <div style="color: rgba(255,255,255,0.7); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px;">Cabezas en Engorde</div>
             </div>
-            
+
             <?php if ($lotes_sin_dieta > 0): ?>
             <div style="text-align: center; background: rgba(239, 68, 68, 0.2); border-radius: var(--radius); padding: 1rem;">
                 <div style="font-size: 3rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem; color: #fca5a5;"><?php echo $lotes_sin_dieta; ?></div>
                 <div style="color: #fca5a5; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px;">⚠ Lotes Sin Dieta</div>
             </div>
             <?php endif; ?>
+        </div>
+    </div>
+
         </div>
     </div>
 <?php endif; ?>

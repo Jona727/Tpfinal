@@ -144,7 +144,7 @@ include '../../includes/header.php';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($insumos_disponibles as $insumo): 
+                        <?php foreach ($insumos_disponibles as $insumo): ?>
                             $checked = isset($_POST['insumos']) && in_array($insumo['id_insumo'], $_POST['insumos']) ? 'checked' : '';
                             $valor_porcentaje = isset($_POST['porcentajes'][$insumo['id_insumo']]) ? $_POST['porcentajes'][$insumo['id_insumo']] : '';
                         ?>
