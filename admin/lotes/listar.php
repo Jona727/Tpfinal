@@ -146,11 +146,11 @@ $lotes = $stmt->fetchAll();
                             </td>
                             <td>
                                 <?php if ($lote['dieta_nombre']): ?>
-<<<<<<< HEAD
                                     <span style="color: var(--primary); font-weight: 600;">✓ <?php echo htmlspecialchars($lote['dieta_nombre']); ?></span>
                                 <?php else: ?>
                                     <span style="color: var(--danger); font-weight: 700;">⚠ Sin dieta</span>
                                 <?php endif; ?>
+                            </td>
                             <td style="text-align: center;">
                                 <span style="background: var(--bg-main); padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">
                                     <?php echo $dias_engorde; ?> d
