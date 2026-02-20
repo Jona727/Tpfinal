@@ -46,7 +46,20 @@ function verificarSesion() {
 function verificarAdmin() {
     iniciarSesion();
     
-    if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] !== 'ADMIN') {
+    // Si no hay sesión, al login
+    if (!isset($_SESSION['tipo'])) {
+        header('Location: ' . BASE_URL . '/admin/login.php');
+        exit();
+    }
+    
+    // Si es de campo, al Hub de Campo
+    if ($_SESSION['tipo'] === 'CAMPO') {
+        header('Location: ' . BASE_URL . '/admin/campo/index.php');
+        exit();
+    }
+    
+    // Si no es ADMIN (y no es CAMPO, por descarte), al login
+    if ($_SESSION['tipo'] !== 'ADMIN') {
         header('Location: ' . BASE_URL . '/admin/login.php');
         exit();
     }

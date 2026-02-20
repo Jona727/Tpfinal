@@ -14,6 +14,15 @@ verificarCampo();
 $lote_preseleccionado = isset($_GET['lote']) ? (int) $_GET['lote'] : null;
 
 // Obtener lotes activos
+$sql_join_usuario = "";
+$sql_where_usuario = "";
+
+if (isset($_SESSION['tipo']) && $_SESSION['tipo'] === 'CAMPO') {
+    $sql_join_usuario = "INNER JOIN usuario_tropa ut ON t.id_tropa = ut.id_tropa";
+    $sql_where_usuario = "AND ut.id_usuario = " . intval($_SESSION['usuario_id']);
+}
+
+// Obtener lotes activos
 $query_lotes = "
     SELECT 
         t.id_tropa,
@@ -21,7 +30,9 @@ $query_lotes = "
         c.nombre as campo_nombre
     FROM tropa t
     INNER JOIN campo c ON t.id_campo = c.id_campo
+    $sql_join_usuario
     WHERE t.activo = 1
+    $sql_where_usuario
     ORDER BY t.nombre ASC
 ";
 $lotes_disponibles = ejecutarConsulta($query_lotes);
@@ -83,9 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_alimentacion'
     $hora = limpiarDato($_POST['hora']);
     $sobrante_nivel = limpiarDato($_POST['sobrante_nivel']);
     $kg_totales = (float) $_POST['kg_totales'];
-    
-    // Recibir kg reales de cada insumo
-    $kg_reales = isset($_POST['kg_real']) ? $_POST['kg_real'] : [];
+    $kg_reales = $_POST['kg_real']; // Array de [id_insumo => kg]
+    $origen_registro = isset($_POST['origen_registro']) ? limpiarDato($_POST['origen_registro']) : 'ONLINE';
     
     // Validaciones
     $errores = [];
@@ -116,9 +126,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_alimentacion'
         $errores[] = "Debés ingresar kg reales para al menos un insumo.";
     }
     
-    // Verificar que la suma de kg reales coincida aproximadamente con kg totales
-    if (abs($suma_kg_reales - $kg_totales) > 1) { // Tolerancia de 1 kg
-        $errores[] = "La suma de kg por insumo (" . formatearNumero($suma_kg_reales, 2) . " kg) no coincide con los kg totales (" . formatearNumero($kg_totales, 2) . " kg).";
+    // Verificar que la suma de kg reales esté dentro de un margen razonable (+- 5%)
+    $margen_permitido = $kg_totales * 0.05;
+    if (abs($suma_kg_reales - $kg_totales) > $margen_permitido) { 
+        $errores[] = "La diferencia entre el total (" . $kg_totales . " kg) y la suma de insumos (" . $suma_kg_reales . " kg) supera el 5% permitido (" . number_format($margen_permitido, 2) . " kg).";
     }
     
     // Obtener animales presentes
@@ -141,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_alimentacion'
             INSERT INTO consumo_lote 
             (id_tropa, id_usuario, fecha, hora, numero_alimentacion_dia, sobrante_nivel, kg_totales_tirados, animales_presentes, origen_registro, fecha_creacion)
             VALUES 
-            ($id_tropa, {$_SESSION['usuario_id']}, '$fecha', '$hora', $numero_alimentacion, '$sobrante_nivel', $kg_totales, $animales, 'ONLINE', NOW())
+            ($id_tropa, {$_SESSION['usuario_id']}, '$fecha', '$hora', $numero_alimentacion, '$sobrante_nivel', $kg_totales, $animales, '$origen_registro', NOW())
         ";
         
         if (ejecutarConsulta($query_consumo)) {
@@ -202,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_alimentacion'
                 
                 if ($inserciones_exitosas) {
                     $exito = "✓ Alimentación registrada exitosamente. Los cálculos de MS se realizaron automáticamente.";
-                    header("refresh:2;url=../lotes/ver.php?id=$id_tropa");
+                    header("refresh:2;url=../campo/index.php");
                 } else {
                     $errores[] = "Error al guardar el detalle de insumos.";
                 }
@@ -251,7 +262,7 @@ include '../../includes/header.php';
         
         <div class="form-grupo">
             <label for="id_tropa">Lote a Alimentar *</label>
-            <select id="id_tropa" name="id_tropa" required onchange="this.form.submit()">
+            <select id="id_tropa" name="id_tropa" required onchange="if(this.value) window.location.href='?lote=' + this.value;">
                 <option value="">-- Seleccioná un lote --</option>
                 <?php while ($lote = mysqli_fetch_assoc($lotes_disponibles)): ?>
                     <option value="<?php echo $lote['id_tropa']; ?>"
@@ -466,6 +477,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputsSugeridos = document.querySelectorAll('.kg-sugerido');
     const animalesPresentes = <?php echo $animales_presentes; ?>;
     
+    if (!inputKgTotales) return; // Evitar errores si no hay lote seleccionado todavía
+    
     // Función para calcular kg sugeridos
     function calcularSugeridos() {
         const kgTotales = parseFloat(inputKgTotales.value) || 0;
@@ -505,7 +518,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const kgTotales = parseFloat(inputKgTotales.value) || 0;
         const diferencia = Math.abs(sumaKgReales - kgTotales);
         
-        if (diferencia > 1 && kgTotales > 0) {
+        const margenJS = kgTotales * 0.05;
+        if (diferencia > margenJS && kgTotales > 0) {
             document.getElementById('suma-kg-reales').style.color = '#dc3545';
         } else {
             document.getElementById('suma-kg-reales').style.color = '#2c5530';
@@ -530,7 +544,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../../includes/footer.php'; ?>
-<script src="/solufeed/assets/js/offline_manager.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('formAlimentacion');
@@ -545,15 +558,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData(form);
             const data = {};
             formData.forEach((value, key) => {
-                // Manejar arrays como kg_real[id]
-                if (key.includes('[')) {
-                    const baseKey = key.split('[')[0];
-                    const id = key.split('[')[1].replace(']', '');
-                    if (!data[baseKey]) data[baseKey] = {};
-                    data[baseKey][id] = value;
-                } else {
-                    data[baseKey || key] = value;
-                }
+                data[key] = value;
             });
             
             // Añadir bandera para el servidor

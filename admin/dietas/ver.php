@@ -70,109 +70,130 @@ require_once '../../includes/header.php';
 
 <div class="ver-dieta-container">
     <!-- Breadcrumb -->
-    <div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500;">
-        <a href="../dashboard.php" style="color: var(--primary); text-decoration: none;">Inicio</a>
-        <span style="opacity: 0.5;">/</span>
-        <a href="listar.php" style="color: var(--primary); text-decoration: none;">Dietas</a>
-        <span style="opacity: 0.5;">/</span>
+    <nav class="breadcrumb" style="margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 600;">
+        <a href="../dashboard.php" style="color: var(--primary); text-decoration: none; transition: opacity 0.2s;">Inicio</a>
+        <span style="opacity: 0.3;">/</span>
+        <a href="listar.php" style="color: var(--primary); text-decoration: none; transition: opacity 0.2s;">Dietas</a>
+        <span style="opacity: 0.3;">/</span>
         <span style="color: var(--text-muted);"><?php echo htmlspecialchars($dieta['nombre']); ?></span>
+    </nav>
+
+    <?php if (isset($_GET['exito'])): ?>
+        <div style="background: #dcfce7; border-left: 5px solid var(--success); color: #166534; padding: 1.25rem; margin-bottom: 2rem; border-radius: var(--radius); font-weight: 600;">
+            ✓ Cambios guardados exitosamente.
+        </div>
+    <?php endif; ?>
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">📋 <?php echo htmlspecialchars($dieta['nombre']); ?></h1>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                <span class="badge" style="background: white; border: 1px solid var(--border); color: var(--primary); font-weight: 700;">
+                    ID: #<?php echo $id_dieta; ?>
+                </span>
+                
+                <?php if ($dieta['activo']): ?>
+                    <span class="badge" style="background: #e7f5ff; color: #1971c2; border: 1px solid #a5d8ff;">
+                        <?php 
+                        // Verificar si está en uso
+                        $stmt_check = $db->prepare("SELECT COUNT(*) FROM tropa_dieta_asignada tda INNER JOIN tropa t ON tda.id_tropa = t.id_tropa WHERE tda.id_dieta = ? AND tda.fecha_hasta IS NULL AND t.activo = 1");
+                        $stmt_check->execute([$id_dieta]);
+                        $en_uso = $stmt_check->fetchColumn() > 0;
+                        echo $en_uso ? '🐄 En Uso' : '✓ Activa'; 
+                        ?>
+                    </span>
+                <?php else: ?>
+                    <span class="badge" style="background: #f1f3f5; color: #495057; border: 1px solid #dee2e6;">⚪ Inactiva</span>
+                <?php endif; ?>
+                
+                <?php if ($dieta['descripcion']): ?>
+                    <span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500; margin-left: 0.5rem; border-left: 2px solid var(--border); padding-left: 1rem; margin-top: 0.25rem;">
+                        <?php echo htmlspecialchars($dieta['descripcion']); ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="listar.php" class="btn btn-secondary"><span>←</span> Volver</a>
+            <a href="editar.php?id=<?php echo $id_dieta; ?>" class="btn <?php echo $dieta['activo'] ? 'btn-secondary' : 'btn-primary'; ?>" style="<?php echo $dieta['activo'] ? 'opacity: 0.8;' : ''; ?>">
+                <span><?php echo $dieta['activo'] ? '🔒' : '✏️'; ?></span> 
+                <?php echo $dieta['activo'] ? 'Gestionar Estado' : 'Editar Composición'; ?>
+            </a>
+        </div>
     </div>
 
-    <!-- Botones de acción -->
-    <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
-        <a href="listar.php" class="btn btn-secondary">
-            <span>←</span> Volver
-        </a>
-        <a href="editar.php?id=<?php echo $id_dieta; ?>" class="btn btn-primary">
-            <span>✏️</span> Editar Dieta
-        </a>
-    </div>
+    <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+        <!-- Composición de la dieta -->
+        <div class="card" style="margin: 0;">
+            <h3 class="card-title"><span>🌾</span> Composición de la Dieta</h3>
+            
+            <?php if (count($composicion) > 0): ?>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Insumo</th>
+                                <th class="hide-mobile">Tipo</th>
+                                <th>% MS Insumo</th>
+                                <th>% en Dieta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($composicion as $item): ?>
+                                <tr>
+                                    <td><strong style="color: var(--primary);"><?php echo htmlspecialchars($item['nombre_insumo']); ?></strong></td>
+                                    <td class="hide-mobile">
+                                        <span class="badge" style="background: var(--bg-main); color: var(--text-main);">
+                                            <?php echo htmlspecialchars($item['tipo']); ?>
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center;"><?php echo number_format($item['porcentaje_ms'], 1); ?>%</td>
+                                    <td style="text-align: center;"><strong style="font-size: 1.1rem; color: var(--primary);"><?php echo number_format($item['porcentaje_teorico'], 1); ?>%</strong></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
+                    <p><strong>Esta dieta no tiene insumos asignados</strong></p>
+                    <p>Editá la dieta para agregar insumos.</p>
+                </div>
+            <?php endif; ?>
+        </div>
 
-    <!-- Header de la dieta -->
-    <div class="card" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; border: none; padding: 2.5rem;">
-        <h1 style="font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -1px;">📋 <?php echo htmlspecialchars($dieta['nombre']); ?></h1>
-        <?php if ($dieta['descripcion']): ?>
-            <p style="opacity: 0.9; font-weight: 500; font-size: 1.1rem;"><?php echo htmlspecialchars($dieta['descripcion']); ?></p>
-        <?php endif; ?>
-    </div>
-
-    <!-- Composición de la dieta -->
-    <div class="card">
-        <h3 class="card-title"><span>🌾</span> Composición de la Dieta</h3>
-        
-        <?php if (count($composicion) > 0): ?>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Insumo</th>
-                            <th>Tipo</th>
-                            <th>% MS Insumo</th>
-                            <th>% en Dieta</th>
-                            <th>Proporción Visual</th>
-                        </tr>
-                    </thead>
-                <tbody>
-                    <?php foreach ($composicion as $item): ?>
-                        <tr>
-                            <td><strong style="color: var(--primary);"><?php echo htmlspecialchars($item['nombre_insumo']); ?></strong></td>
-                            <td>
-                                <span class="badge" style="background: var(--bg-main); color: var(--text-main);">
-                                    <?php echo htmlspecialchars($item['tipo']); ?>
-                                </span>
-                            </td>
-                            <td><?php echo number_format($item['porcentaje_ms'], 1); ?>%</td>
-                            <td><strong style="font-size: 1.1rem;"><?php echo number_format($item['porcentaje_teorico'], 1); ?>%</strong></td>
-                            <td>
-                                <div class="porcentaje-bar" style="height: 12px; background: var(--bg-main); border-radius: 50px; overflow: hidden; max-width: 150px;">
-                                    <div class="porcentaje-fill" style="width: <?php echo $item['porcentaje_teorico']; ?>%; height: 100%; background: var(--primary); border-radius: 50px;"></div>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <!-- Columna de Gráficos y Resumen -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Gráfico de Torta -->
+            <div class="card" style="margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; padding: 1.25rem;">
+                <h3 class="card-title" style="width: 100%; margin-bottom: 0.5rem; font-size: 1rem;"><span>📊</span> Visualización</h3>
+                <div style="width: 100%; max-width: 150px; margin: auto; flex: 1; display: flex; align-items: center;">
+                    <canvas id="dietaChart"></canvas>
+                </div>
+            </div>
 
             <!-- Resumen de MS -->
-            <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-main); border-radius: var(--radius);">
-                <h4 style="color: var(--primary); font-weight: 800; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
-                    <span>📊</span> Resumen de Materia Seca
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
-                    <div style="background: white; padding: 1.25rem; border-radius: var(--radius); text-align: center; box-shadow: var(--shadow-sm);">
-                        <div style="font-size: 2rem; font-weight: 800; color: var(--primary);"><?php echo number_format($ms_total, 2); ?>%</div>
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-top: 0.25rem;">% MS Total Dieta</div>
+            <div class="card" style="margin: 0; background: var(--bg-main); border: 1px solid var(--border); padding: 1.25rem;">
+                <h3 class="card-title" style="margin-bottom: 0.75rem; font-size: 1rem;"><span>📝</span> Resumen Materia Seca</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div style="background: white; padding: 0.75rem; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+                        <div style="font-size: 1.4rem; font-weight: 800; color: var(--primary);"><?php echo number_format($ms_total, 2); ?>%</div>
+                        <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">MS Total</div>
                     </div>
-                    <div style="background: white; padding: 1.25rem; border-radius: var(--radius); text-align: center; box-shadow: var(--shadow-sm);">
-                        <div style="font-size: 2rem; font-weight: 800; color: var(--secondary);"><?php echo count($composicion); ?></div>
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-top: 0.25rem;">Insumos</div>
-                    </div>
-                    <div style="background: white; padding: 1.25rem; border-radius: var(--radius); text-align: center; box-shadow: var(--shadow-sm);">
-                        <div style="font-size: 2rem; font-weight: 800; color: <?php 
+                    <div style="background: white; padding: 0.75rem; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+                        <div style="font-size: 1.4rem; font-weight: 800; color: <?php 
                             $total_porcentaje = array_sum(array_column($composicion, 'porcentaje_teorico'));
                             echo (abs($total_porcentaje - 100) < 0.1) ? 'var(--success)' : 'var(--danger)';
                         ?>;">
                             <?php echo number_format($total_porcentaje, 1); ?>%
                         </div>
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-top: 0.25rem;">Total %</div>
+                        <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Mezcla</div>
                     </div>
                 </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px;">
-                    <p style="margin: 0; color: #666; font-size: 0.95em;">
-                        <strong>💡 Nota:</strong> El % MS total indica la cantidad de materia seca que contiene esta dieta. 
-                        Para calcular el consumo de MS de los animales, se multiplican los kg totales entregados 
-                        por este porcentaje.
-                    </p>
-                </div>
             </div>
-        <?php else: ?>
-            <div style="text-align: center; padding: 40px; color: #666;">
-                <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
-                <p><strong>Esta dieta no tiene insumos asignados</strong></p>
-                <p>Editá la dieta para agregar insumos.</p>
-            </div>
-        <?php endif; ?>
+        </div>
     </div>
 
     <!-- Lotes que usan esta dieta -->
@@ -199,5 +220,57 @@ require_once '../../includes/header.php';
         <?php endif; ?>
     </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    @media (max-width: 992px) {
+        .ver-dieta-container > div[style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('dietaChart').getContext('2d');
+    
+    const data = {
+        labels: [<?php echo "'" . implode("', '", array_map(function($i) { return htmlspecialchars($i['nombre_insumo']); }, $composicion)) . "'"; ?>],
+        datasets: [{
+            data: [<?php echo implode(", ", array_column($composicion, 'porcentaje_teorico')); ?>],
+            backgroundColor: [
+                '#2c5530', '#4a7c44', '#7dad6c', '#accf9b', '#d9ebce',
+                '#1a3a1d', '#3e6341', '#669169', '#93bf96', '#c4e8c7'
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+    };
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.label}: ${context.raw}%`;
+                        }
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+});
+</script>
 
 <?php require_once '../../includes/footer.php'; ?>

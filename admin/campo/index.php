@@ -32,23 +32,48 @@ $stmt->execute([$hoy]);
 $pesadas_hoy = $stmt->fetch()['total'];
 
 // Obtener lotes activos
-$stmt = $db->query("
-    SELECT COUNT(*) as total 
-    FROM tropa 
-    WHERE activo = 1
-");
+// Obtener lotes activos
+if ($_SESSION['tipo'] === 'CAMPO') {
+    $stmt = $db->prepare("
+        SELECT COUNT(DISTINCT t.id_tropa) as total 
+        FROM tropa t
+        INNER JOIN usuario_tropa ut ON t.id_tropa = ut.id_tropa
+        WHERE t.activo = 1 AND ut.id_usuario = ?
+    ");
+    $stmt->execute([$_SESSION['usuario_id']]);
+} else {
+    $stmt = $db->query("
+        SELECT COUNT(*) as total 
+        FROM tropa 
+        WHERE activo = 1
+    ");
+}
 $lotes_activos = $stmt->fetch()['total'];
 
 // Obtener lotes pendientes de alimentar hoy
-$stmt = $db->prepare("
-    SELECT COUNT(DISTINCT t.id_tropa) as total
-    FROM tropa t
-    LEFT JOIN consumo_lote cl ON t.id_tropa = cl.id_tropa 
-        AND DATE(cl.fecha) = ?
-    WHERE t.activo = 1 
-    AND cl.id_consumo IS NULL
-");
-$stmt->execute([$hoy]);
+if ($_SESSION['tipo'] === 'CAMPO') {
+    $stmt = $db->prepare("
+        SELECT COUNT(DISTINCT t.id_tropa) as total
+        FROM tropa t
+        INNER JOIN usuario_tropa ut ON t.id_tropa = ut.id_tropa
+        LEFT JOIN consumo_lote cl ON t.id_tropa = cl.id_tropa 
+            AND DATE(cl.fecha) = ?
+        WHERE t.activo = 1 
+        AND ut.id_usuario = ?
+        AND cl.id_consumo IS NULL
+    ");
+    $stmt->execute([$hoy, $_SESSION['usuario_id']]);
+} else {
+    $stmt = $db->prepare("
+        SELECT COUNT(DISTINCT t.id_tropa) as total
+        FROM tropa t
+        LEFT JOIN consumo_lote cl ON t.id_tropa = cl.id_tropa 
+            AND DATE(cl.fecha) = ?
+        WHERE t.activo = 1 
+        AND cl.id_consumo IS NULL
+    ");
+    $stmt->execute([$hoy]);
+}
 $lotes_pendientes = $stmt->fetch()['total'];
 
 require_once __DIR__ . '/../../includes/header.php';
@@ -69,15 +94,14 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 
     <!-- Alerta de lotes pendientes -->
-    <?php if ($lotes_pendientes > 0): ?>
         <div class="card" style="background: #fff3cd; border-left: 5px solid var(--warning); padding: 1.25rem; display: flex; align-items: center; gap: 15px; margin-bottom: 2rem;">
             <div style="font-size: 2rem;">⚠️</div>
-            <div>
+            <div style="flex: 1;">
                 <strong style="color: #856404; display: block;">Lotes pendientes</strong>
                 <span style="color: #856404; font-size: 0.9rem;">Faltan <?php echo $lotes_pendientes; ?> lotes por alimentar hoy.</span>
             </div>
+            <a href="consultar_lotes.php?filtro=sin_alimentar" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem;">Gestionar</a>
         </div>
-    <?php endif; ?>
 
     <!-- Estadísticas rápidas -->
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
@@ -136,4 +160,3 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
-<script src="/solufeed/assets/js/offline_manager.js"></script>

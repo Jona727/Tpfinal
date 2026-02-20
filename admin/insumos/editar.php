@@ -158,62 +158,36 @@ include '../../includes/header.php';
             <a href="listar.php" class="btn btn-secondary btn-lg" style="flex: 0.3;">Cancelar</a>
         </div>
         
-    </form>
-    
 </div>
 
-    <h3 class="card-title"><span>📊</span> Uso de este Insumo</h3>
-    
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form.formulario');
+    const activoCheckbox = document.getElementById('activo');
+    // Obtenemos el conteo vía PHP para la validación de seguridad (aunque no mostremos la tabla)
     <?php
-    // Verificar en cuántas dietas se usa este insumo (usando PDO ahora)
-    $stmt_uso = $db->prepare("
-        SELECT 
-            d.nombre as dieta_nombre,
-            dd.porcentaje_teorico
-        FROM dieta_detalle dd
-        INNER JOIN dieta d ON dd.id_dieta = d.id_dieta
-        WHERE dd.id_insumo = ?
-        AND d.activo = 1
-        ORDER BY d.nombre
-    ");
-    $stmt_uso->execute([$id_insumo]);
-    $dietas_uso = $stmt_uso->fetchAll();
+        $stmt_check = $db->prepare("
+            SELECT COUNT(*) as total 
+            FROM dieta_detalle dd 
+            INNER JOIN dieta d ON dd.id_dieta = d.id_dieta 
+            WHERE dd.id_insumo = ? AND d.activo = 1
+        ");
+        $stmt_check->execute([$id_insumo]);
+        $count = $stmt_check->fetch()['total'];
     ?>
-    
-    <?php if (count($dietas_uso) > 0): ?>
-        <p style="margin-bottom: 1rem; font-weight: 500;">Este insumo está siendo utilizado en <strong><?php echo count($dietas_uso); ?></strong> dieta(s) activa(s):</p>
-        
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Dieta</th>
-                        <th style="text-align: center;">% Teórico</th>
-                        <th style="text-align: right;">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($dietas_uso as $dieta): ?>
-                        <tr>
-                            <td style="font-weight: 600; color: var(--primary);"><?php echo htmlspecialchars($dieta['dieta_nombre']); ?></td>
-                            <td style="text-align: center;">
-                                <span style="background: var(--bg-main); padding: 4px 8px; border-radius: 6px; font-weight: 700;">
-                                    <?php echo number_format($dieta['porcentaje_teorico'], 1); ?>%
-                                </span>
-                            </td>
-                            <td style="text-align: right;">
-                                <a href="../dietas/ver.php?id=<?php echo $id_insumo; /* Esto asume que el ID se pasa, pero ver.php necesita el id_dieta. Requeriría un join extra o simplemente omitir el link si no es fácil. Mejor lo dejamos como texto por ahora o buscamos el id_dieta */ ?>" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Detalles</a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php else: ?>
-        <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic; border: 1px dashed var(--border); border-radius: var(--radius);">
-            Este insumo no está siendo utilizado en ninguna dieta activa todavía.
-        </div>
-    <?php endif; ?>
-</div>
+    const dietasUsoCount = <?php echo $count; ?>;
+
+    form.addEventListener('submit', function(e) {
+        // Si intenta desactivar y está en uso
+        if (!activoCheckbox.checked && dietasUsoCount > 0) {
+            const confirmacion = confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\nEste insumo se está utilizando actualmente en ${dietasUsoCount} dieta(s) activa(s).\n\nSi lo desactivas, estas dietas quedarán incompletas o inválidas.\n\n¿Estás SEGURO de que quieres desactivarlo?`);
+            
+            if (!confirmacion) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
 
 <?php include '../../includes/footer.php'; ?>

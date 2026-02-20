@@ -4,18 +4,18 @@
  */
 
 // Esperar a que el DOM esté completamente cargado
-document.addEventListener('DOMContentLoaded', function() {
-    
+document.addEventListener('DOMContentLoaded', function () {
+
     // Confirmación antes de eliminar
     const botonesEliminar = document.querySelectorAll('.btn-eliminar');
     botonesEliminar.forEach(boton => {
-        boton.addEventListener('click', function(e) {
+        boton.addEventListener('click', function (e) {
             if (!confirm('¿Estás seguro de que deseas eliminar este elemento?')) {
                 e.preventDefault();
             }
         });
     });
-    
+
     // Auto-ocultar mensajes después de 5 segundos
     const mensajes = document.querySelectorAll('.mensaje');
     mensajes.forEach(mensaje => {
@@ -27,7 +27,51 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         }, 5000);
     });
-    
+
+    // Mobile Menu Logic
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const menuOverlay = document.getElementById('menuOverlay');
+
+    if (menuToggle && sidebar && menuOverlay) {
+        function toggleMenu() {
+            sidebar.classList.toggle('open');
+            menuOverlay.classList.toggle('active');
+
+            // Cambiar ícono y bloquear scroll
+            const isOpen = sidebar.classList.contains('open');
+            menuToggle.textContent = isOpen ? '✕' : '☰'; // Cambia el icono pero mantiene el estilo Material Icon si es texto
+
+            if (isOpen) {
+                document.body.style.overflow = 'hidden'; // Bloquear scroll
+                // Si usamos Material Icons y texto plano, quizas esto rompa el icono si estaba en span. 
+                // Revisemos el HTML: <button><span class="material-icon">☰</span></button>
+                // Al hacer textContent override, borramos el span.
+                // Corrección: Manipular el innerHTML o el span.
+                menuToggle.innerHTML = '<span class="material-icon">✕</span>';
+            } else {
+                document.body.style.overflow = ''; // Restaurar scroll
+                menuToggle.innerHTML = '<span class="material-icon">☰</span>';
+            }
+        }
+
+        function closeMenu() {
+            sidebar.classList.remove('open');
+            menuOverlay.classList.remove('active');
+            document.body.style.overflow = ''; // Restaurar scroll
+            menuToggle.innerHTML = '<span class="material-icon">☰</span>';
+        }
+
+        menuToggle.addEventListener('click', toggleMenu);
+        menuOverlay.addEventListener('click', closeMenu);
+
+        // Cerrar menú con tecla ESC
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                closeMenu();
+            }
+        });
+    }
 });
 
 /**

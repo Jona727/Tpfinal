@@ -14,8 +14,25 @@ include '../../includes/header.php';
 
 $db = getConnection();
 
+// Filtros dinámicos
+$filtro = isset($_GET['filtro']) ? $_GET['filtro'] : '';
+$where_clause = "WHERE 1=1";
+$params = [];
+
+if ($filtro === 'sin_alimentar') {
+    $where_clause .= " AND t.activo = 1 AND NOT EXISTS (
+        SELECT 1 FROM consumo_lote cl 
+        WHERE cl.id_tropa = t.id_tropa AND DATE(cl.fecha) = CURDATE()
+    )";
+} elseif ($filtro === 'sin_dieta') {
+    $where_clause .= " AND t.activo = 1 AND NOT EXISTS (
+        SELECT 1 FROM tropa_dieta_asignada tda 
+        WHERE tda.id_tropa = t.id_tropa AND tda.fecha_hasta IS NULL
+    )";
+}
+
 // Obtener todos los lotes con información relacionada (Usando PDO)
-$stmt = $db->query("
+$sql = "
     SELECT 
         t.id_tropa,
         t.nombre,
@@ -28,27 +45,55 @@ $stmt = $db->query("
         (SELECT MAX(p.fecha) FROM pesada p WHERE p.id_tropa = t.id_tropa) as ultima_pesada,
         (SELECT MAX(cl.fecha) FROM consumo_lote cl WHERE cl.id_tropa = t.id_tropa) as ultima_alimentacion,
         (SELECT COUNT(*) FROM consumo_lote cl WHERE cl.id_tropa = t.id_tropa) as total_alimentaciones,
-        (SELECT COUNT(*) FROM pesada p WHERE p.id_tropa = t.id_tropa) as total_pesadas
+        (SELECT COUNT(*) FROM pesada p WHERE p.id_tropa = t.id_tropa) as total_pesadas,
+        (
+            SELECT GROUP_CONCAT(SUBSTRING_INDEX(u.nombre, ' ', 1) SEPARATOR ', ')
+            FROM usuario_tropa ut
+            INNER JOIN usuario u ON ut.id_usuario = u.id_usuario
+            WHERE ut.id_tropa = t.id_tropa
+        ) as operarios_asignados
     FROM tropa t
     INNER JOIN campo c ON t.id_campo = c.id_campo
     LEFT JOIN tropa_dieta_asignada tda ON t.id_tropa = tda.id_tropa 
         AND tda.fecha_desde <= CURDATE() 
         AND (tda.fecha_hasta IS NULL OR tda.fecha_hasta >= CURDATE())
     LEFT JOIN dieta d ON tda.id_dieta = d.id_dieta
+    $where_clause
     ORDER BY t.activo DESC, t.fecha_inicio DESC
-");
+";
 
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
 $lotes = $stmt->fetchAll();
 ?>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: var(--surface); padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
     <div>
-        <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">🐮 Gestión de Lotes</h1>
-        <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.95rem; font-weight: 500;">Administrá los lotes/tropas de animales en el feedlot</p>
+        <h1 style="font-weight: 800; color: var(--primary); margin: 0; letter-spacing: -1px;">
+            <?php 
+            if ($filtro === 'sin_alimentar') echo "⚠️ Lotes sin Alimentar Hoy";
+            elseif ($filtro === 'sin_dieta') echo "📋 Lotes sin Dieta Asignada";
+            else echo "🐮 Gestión de Lotes";
+            ?>
+        </h1>
+        <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.95rem; font-weight: 500;">
+            <?php 
+            if ($filtro) echo "Mostrando solo los registros que requieren atención inmediata.";
+            else echo "Administrá los lotes/tropas de animales en el feedlot";
+            ?>
+        </p>
     </div>
-    <a href="crear.php" class="btn btn-primary" style="padding: 0.875rem 1.5rem;">
-        <span>➕</span> Nuevo Lote
-    </a>
+    <div style="display: flex; gap: 1rem;">
+        <?php if ($filtro): ?>
+            <a href="listar.php" class="btn btn-secondary" style="padding: 0.875rem 1.5rem;">
+                ✕ Limpiar Filtro
+            </a>
+        <?php else: ?>
+            <a href="crear.php" class="btn btn-primary" style="padding: 0.875rem 1.5rem;">
+                <span>➕</span> Nuevo Lote
+            </a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div class="card">
@@ -82,8 +127,14 @@ $lotes = $stmt->fetchAll();
                         ?>
                         <tr>
                             <td>
-                                <strong style="color: var(--primary); font-size: 1.05rem;"><?php echo htmlspecialchars($lote['nombre']); ?></strong>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($lote['categoria']); ?></div>
+                                <strong style="color: var(--primary); font-size: 1.05rem; display: block; margin-bottom: 2px;"><?php echo htmlspecialchars($lote['nombre']); ?></strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;"><?php echo htmlspecialchars($lote['categoria']); ?></div>
+                                
+                                <?php if ($lote['operarios_asignados']): ?>
+                                    <div style="font-size: 0.75rem; background: #e0f2fe; color: #0284c7; display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; gap: 4px;">
+                                        <span>🧑‍🌾</span> <?php echo htmlspecialchars($lote['operarios_asignados']); ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td><?php echo htmlspecialchars($lote['campo_nombre']); ?></td>
                             <td>
@@ -139,7 +190,7 @@ $lotes = $stmt->fetchAll();
 </div>
 
 <!-- Resumen estadístico -->
-<?php if (count($lotes) > 0): ?>
+<?php if (count($lotes) > 0 && !$filtro): ?>
     <?php
     // Calcular totales
     $total_animales = 0;

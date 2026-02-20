@@ -9,6 +9,24 @@ verificarSesion();
 $page_title = "Consultar Lotes";
 $db = getConnection();
 
+// Filtros dinámicos
+$filtro = isset($_GET['filtro']) ? $_GET['filtro'] : '';
+$where_clause = "WHERE t.activo = 1";
+$join_usuario = "";
+
+// Filtro de seguridad para CAMPO
+if (isset($_SESSION['tipo']) && $_SESSION['tipo'] === 'CAMPO') {
+    $join_usuario = "INNER JOIN usuario_tropa ut ON t.id_tropa = ut.id_tropa";
+    $where_clause .= " AND ut.id_usuario = " . intval($_SESSION['usuario_id']);
+}
+
+if ($filtro === 'sin_alimentar') {
+    $where_clause .= " AND NOT EXISTS (
+        SELECT 1 FROM consumo_lote cl 
+        WHERE cl.id_tropa = t.id_tropa AND DATE(cl.fecha) = CURDATE()
+    )";
+}
+
 // Obtener lotes activos con información completa
 $stmt = $db->query("
     SELECT 
@@ -41,7 +59,8 @@ $stmt = $db->query("
     LEFT JOIN tropa_dieta_asignada tda ON t.id_tropa = tda.id_tropa 
         AND tda.fecha_hasta IS NULL
     LEFT JOIN dieta d ON tda.id_dieta = d.id_dieta
-    WHERE t.activo = 1
+    $join_usuario
+    $where_clause
     ORDER BY t.nombre ASC
 ");
 $lotes = $stmt->fetchAll();
@@ -239,14 +258,23 @@ require_once __DIR__ . '/../../includes/header.php';
     <!-- Header -->
     <div class="header-consulta">
         <div>
-            <h1 style="margin: 0 0 5px 0;">🐮 Consultar Lotes</h1>
+            <h1 style="margin: 0 0 5px 0;">
+                <?php echo ($filtro === 'sin_alimentar') ? "⚠️ Lotes Pendientes de Ración" : "🐮 Consultar Lotes"; ?>
+            </h1>
             <p style="margin: 0; color: #666;">
-                Información de todos los lotes activos
+                <?php echo ($filtro === 'sin_alimentar') ? "Mostrando lotes que aún no han recibido alimento hoy." : "Información de todos los lotes activos"; ?>
             </p>
         </div>
-        <a href="index.php" class="btn-volver">
-            ← Volver al Hub
-        </a>
+        <div style="display: flex; gap: 10px;">
+            <?php if ($filtro): ?>
+                <a href="consultar_lotes.php" class="btn-volver" style="background: var(--secondary);">
+                    ✕ Ver todos los lotes
+                </a>
+            <?php endif; ?>
+            <a href="index.php" class="btn-volver">
+                ← Volver al Hub
+            </a>
+        </div>
     </div>
 
     <!-- Grid de lotes -->
@@ -341,9 +369,18 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
     <?php else: ?>
         <div class="mensaje-vacio">
-            <div class="icono">🐮</div>
-            <h2 style="color: #666;">No hay lotes activos</h2>
-            <p style="color: #999;">Actualmente no hay lotes registrados en el sistema.</p>
+            <?php if ($filtro === 'sin_alimentar'): ?>
+                <div class="icono">✅</div>
+                <h2 style="color: #2c5530;">¡Todo al día!</h2>
+                <p style="color: #666;">Todos los lotes activos han sido alimentados hoy.</p>
+                <a href="consultar_lotes.php" class="btn-volver" style="background: var(--secondary); margin-top: 20px;">
+                    Ver todos los lotes
+                </a>
+            <?php else: ?>
+                <div class="icono">🐮</div>
+                <h2 style="color: #666;">No hay lotes activos</h2>
+                <p style="color: #999;">Actualmente no hay lotes registrados en el sistema.</p>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 

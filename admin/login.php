@@ -255,5 +255,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             &copy; <?php echo date('Y'); ?> Solufeed. Todos los derechos reservados.
         </footer>
     </div>
+
+    <!-- Redirección/Login Offline (Fase 3 v1.3) -->
+    <script src="../assets/js/offline_manager.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const loginForm = document.querySelector('form');
+        const emailInput = document.getElementById('email');
+
+        // Función para intentar login offline
+        const handleOfflineLogin = async () => {
+            if (window.OfflineManager) {
+                try {
+                    await OfflineManager.initDB();
+                    const transaction = OfflineManager.db.transaction(['offline_queue'], 'readonly');
+                    const store = transaction.objectStore('offline_queue');
+                    const request = store.get('current_session');
+                    
+                    request.onsuccess = () => {
+                        const session = request.result;
+                        if (session && session.data.email.trim().toLowerCase() === emailInput.value.trim().toLowerCase()) {
+                            console.log('🟢 [PWA] Acceso concedido mediante sesión local.');
+                            const user = session.data;
+                            window.location.href = user.tipo === 'CAMPO' ? 'campo/index.php' : 'dashboard.php';
+                        } else if (session) {
+                            alert('⚠️ Este dispositivo tiene guardada la sesión de "' + session.data.email + '". Para entrar con otra cuenta, necesitas conectarte a internet al menos una vez.');
+                        } else {
+                            alert('📡 Sin Conexión: No hay ninguna sesión guardada en este dispositivo. Debes iniciar sesión con internet la primera vez para activar el modo offline.');
+                        }
+                    };
+                } catch (e) {
+                    console.error('❌ Error en DB local:', e);
+                    alert('Error técnico al acceder a los datos locales.');
+                }
+            }
+        };
+
+        // Interceptar el envío del formulario siempre que estemos offline
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                if (!navigator.onLine) {
+                    e.preventDefault();
+                    console.warn('📶 Intentando acceso sin conexión...');
+                    await handleOfflineLogin();
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>
